@@ -1,0 +1,22 @@
+{
+  "car-wash-checker": {
+    "phase": "do",
+    "level": "starter",
+    "startedAt": "2026-05-02",
+    "updatedAt": "2026-05-03",
+    "matchRate": null,
+    "iterationCount": 0,
+    "documents": {
+      "plan": "docs/01-plan/features/car-wash-checker.plan.md",
+      "design": "docs/02-design/features/car-wash-checker.design.md",
+      "analysis": null,
+      "report": null
+    },
+    "implementation": {
+      "phaseAComplete": true,
+      "phaseBComplete": true,
+      "phaseCComplete": false,
+      "phaseDComplete": false
+    }
+  }
+}

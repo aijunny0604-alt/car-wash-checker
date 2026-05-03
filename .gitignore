@@ -1,0 +1,27 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Playwright MCP cache
+.playwright-mcp/
+
+# 스크린샷 (검증용 임시 파일)
+*.png
+!docs/**/*.png
+
+# 로컬 API 키 (절대 커밋 금지)
+src/keys.local.js
+keys.local.js
+
+# 캐시/로그
+*.log
+npm-debug.log*
+
+# 노드 (혹시 추가 시)
+node_modules/

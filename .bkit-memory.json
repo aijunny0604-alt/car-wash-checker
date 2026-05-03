@@ -1,0 +1,10 @@
+{
+  "feature": "car-wash-checker",
+  "phase": "do",
+  "level": "starter",
+  "createdAt": "2026-05-02",
+  "updatedAt": "2026-05-03",
+  "matchRate": null,
+  "iterationCount": 0,
+  "notes": "Phase A + B 구현 완료. 키 없는 4종(Open-Meteo, MET Norway, 7Timer, Open-Meteo AQ)으로 즉시 동작. 키 추가 어댑터(KMA/AirKorea/OpenWeather/Weatherbit/WAQI/IQAir)는 Phase C에서 추가 예정. 실행: 정적 서버 띄우고 index.html 오픈."
+}

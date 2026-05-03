@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0ea5e9" />
+  <meta name="description" content="날씨·미세먼지·기온/습도를 종합해 오늘 세차해도 되는지 알려주는 앱" />
+  <title>세차 OK? · 오늘 세차해도 될까</title>
+  <link rel="stylesheet" href="./style.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E%F0%9F%9A%97%3C/text%3E%3C/svg%3E" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>🚗 세차해도 될까?</h1>
+    <button id="settingsBtn" class="icon-btn" aria-label="설정">⚙</button>
+  </header>
+
+  <main class="layout">
+    <section class="top-bar">
+      <div class="location-bar">
+        <span id="locationLabel">📍 위치 확인 중…</span>
+        <button id="changeLocationBtn" class="link-btn">변경</button>
+      </div>
+      <div class="date-picker-bar">
+        <label for="targetDate">📅 세차 예정일</label>
+        <input type="date" id="targetDate" />
+        <button id="todayBtn" class="link-btn" type="button">오늘</button>
+        <button id="bestDayBtn" class="link-btn" type="button" title="이번 주 점수 최고일">🏆 최적일</button>
+      </div>
+    </section>
+
+    <section class="grid-2col">
+      <div class="col-main">
+        <section id="todayCard" class="today-card" aria-live="polite">
+          <div class="loading">불러오는 중…</div>
+        </section>
+      </div>
+      <div class="col-side">
+        <section id="hourlySection" class="hourly-section" hidden>
+          <h3>⏰ 시간별 강수확률 + 기온</h3>
+          <svg id="sparkline" class="sparkline" viewBox="0 0 600 100" preserveAspectRatio="none" aria-hidden="true"></svg>
+          <div class="legend">
+            <span><span class="dot" style="background:#3884e2"></span>강수확률(%)</span>
+            <span><span class="dot" style="background:#ef6c4d"></span>기온(℃)</span>
+          </div>
+        </section>
+
+        <section class="forecast-section">
+          <div class="forecast-head">
+            <h2>🗓 <span id="rangeLabel">14일</span> 예보</h2>
+            <div class="range-toggle" role="tablist" aria-label="예보 기간">
+              <button type="button" data-range="7"  class="range-btn">7일</button>
+              <button type="button" data-range="14" class="range-btn is-active">14일</button>
+              <button type="button" data-range="16" class="range-btn">16일</button>
+              <button type="button" data-range="30" class="range-btn">30일 <sup>★</sup></button>
+            </div>
+          </div>
+          <div class="forecast-wrap">
+            <span id="selectIndicator" class="select-indicator" aria-hidden="true"></span>
+            <ol id="forecastStrip" class="forecast-strip" role="list"></ol>
+          </div>
+          <p id="climateNote" class="climate-note" hidden>
+            ★ <strong>17~30일은 과거 30년 같은 날짜 평균</strong>으로 계산한 <em>참고치</em>입니다.
+            기상 모델 특성상 16일 이후는 정확한 예보가 불가능해, 점선 카드로 구분 표시합니다.
+          </p>
+        </section>
+      </div>
+    </section>
+
+    <details class="criteria-info">
+      <summary>ⓘ 판단 기준 / 데이터 출처</summary>
+      <div id="criteriaBody">
+        <p>강수확률 40 + 대기질 25 + 기온 15 + 습도 10 + 풍속 10 (총 100점)</p>
+        <ul>
+          <li>🟢 OK: 80 이상</li>
+          <li>🟡 보류: 50–79</li>
+          <li>🔴 비추천: 49 이하</li>
+        </ul>
+        <p id="sourcesLine" class="sources-line"></p>
+      </div>
+    </details>
+  </main>
+
+  <dialog id="cityPicker" class="city-picker">
+    <form method="dialog">
+      <h3>도시 선택</h3>
+      <ul id="cityList" class="city-list"></ul>
+      <menu>
+        <button value="cancel" class="link-btn">닫기</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <dialog id="settingsModal" class="city-picker">
+    <form method="dialog">
+      <h3>설정</h3>
+      <p class="muted">데이터 소스 ON/OFF</p>
+      <ul id="sourceToggles" class="source-toggles"></ul>
+      <menu>
+        <button value="ok" class="link-btn">확인</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>
