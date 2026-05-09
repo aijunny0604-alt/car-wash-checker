@@ -1809,15 +1809,19 @@ button:focus-visible, [role="button"]:focus-visible {
     gap: 0 !important;
     min-width: 0;
   }
-  .metric .metric-vis { height: 20px !important; }
+  .metric .metric-vis { height: 22px !important; }
   .metric .v {
-    font-size: 0.72rem !important;
+    font-size: 0.82rem !important;  /* 11.5 → 13.1px (가독성↑) */
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     max-width: 100%;
+    line-height: 1.2;
   }
-  .metric .lbl { font-size: 0.55rem !important; }
+  .metric .lbl {
+    font-size: 0.7rem !important;   /* 8.8 → 11.2px */
+    line-height: 1.2;
+  }
   .today-card .gear-row { margin-top: 2px; }
 
   /* 추천 장비 칩 작게 */
@@ -1875,7 +1879,18 @@ button:focus-visible, [role="button"]:focus-visible {
   .forecast-day .score-num { font-size: 0.95rem; }
   .forecast-day .meta { font-size: 0.65rem; }
   .range-toggle { gap: 2px; padding: 3px; }
-  .range-btn { padding: 4px 8px; font-size: 0.72rem; }
+  .range-btn {
+    padding: 8px 10px;
+    font-size: 0.82rem;
+    min-height: 36px;
+  }
+  /* 위치/날짜바 액션 버튼 터치 영역 확대 */
+  .date-picker-bar .link-btn {
+    padding: 8px 8px;
+    font-size: 0.85rem;
+    min-height: 36px;
+  }
+  #todayBtn, #bestDayBtn { min-height: 36px; }
 
   .forecast-head { flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
   .forecast-head h2 { font-size: 0.9rem; }
