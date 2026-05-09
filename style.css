@@ -1745,24 +1745,23 @@ button:focus-visible, [role="button"]:focus-visible {
   .today-card .best-badge,
   .today-card .climate-badge { font-size: 0.7rem; padding: 2px 8px; }
 
-  /* 인포그래픽 컴팩트 — 컨테이너 줄임에 맞춰 한 단계 더 축소 */
+  /* 인포그래픽 — 사용자 요청: 한 단 키움 (시각적 강조 유지) */
   .weather-stage {
-    width: 110px;
-    height: 84px;
+    width: 160px;
+    height: 120px;
     margin: 0 auto;
   }
-  .score-gauge { width: 72px; height: 72px; }
-  .score-gauge .gauge-num { font-size: 1.1rem; }
-  .score-gauge .gauge-label { font-size: 0.5rem; }
-  .score-gauge .gauge-bg, .score-gauge .gauge-fg { stroke-width: 8; }
-  .today-card .gauge-text-wrap { transform: scale(0.95); }
+  .score-gauge { width: 100px; height: 100px; }
+  .score-gauge .gauge-num { font-size: 1.55rem; }
+  .score-gauge .gauge-label { font-size: 0.62rem; }
+  .score-gauge .gauge-bg, .score-gauge .gauge-fg { stroke-width: 9; }
 
-  /* 메트릭 카드: 4열 → 2열 (좁은 화면에서 글자 안 깨지게) */
-  .metric-row { grid-template-columns: repeat(2, 1fr); gap: 6px; }
-  .metric { padding: 8px 6px; }
-  .metric .metric-vis { height: 36px; }
-  .metric .v { font-size: 0.92rem; }
-  .metric .lbl { font-size: 0.68rem; }
+  /* 메트릭 카드 — 4열 유지 + 컴팩트화 (하단 내용 작게 → 컨테이너 세로 축소) */
+  .metric-row { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+  .metric { padding: 5px 3px; gap: 1px; }
+  .metric .metric-vis { height: 24px; }
+  .metric .v { font-size: 0.78rem; }
+  .metric .lbl { font-size: 0.6rem; }
 
   /* 추천 장비 칩 작게 */
   .gear-row { gap: 4px; }
