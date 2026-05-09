@@ -725,13 +725,22 @@ function escapeAttr(s) {
 // ───── 주변 세차장 (반경 20km, 거리순) ─────
 const CARWASH_RADIUS = 20000; // 카카오 API 최대 (20km)
 
+// 위치 종류 헬퍼 — source가 명시적으로 'manual'/'address'/'name'이 아니면 GPS로 간주
+// (옛 stored 데이터에 source 필드 누락 케이스에 안전)
+function isGpsLocation() {
+  const src = state.location?.source;
+  return src !== 'manual' && src !== 'address' && src !== 'name';
+}
+function nearbyMode() {
+  return isGpsLocation() ? 'nearby-gps' : 'nearby-manual';
+}
+
 async function loadCarWashes(token) {
   if (!els.carwashSection) return;
   if (!KEYS.kakao) { els.carwashSection.hidden = true; return; }
   if (!state.location) return;
 
-  // 위치 종류 — GPS = 진짜 내 주변, manual = 그 동네 임의/인기
-  const isGps = state.location.source === 'gps';
+  const isGps = isGpsLocation();
 
   // 새 위치로 진입 — 이전 도시 캐시는 즉시 폐기
   state.carwashAll = null;
@@ -767,8 +776,8 @@ async function loadCarWashes(token) {
 async function searchCarWashesByKeyword(keyword) {
   if (!KEYS.kakao || !state.location) return;
   if (!keyword || keyword.trim().length < 1) {
-    // 빈 검색 → 주변 세차장으로 복귀
-    if (state.carwashAll) renderCarWashes(state.carwashAll, { mode: 'nearby' });
+    // 빈 검색 → 주변 세차장으로 복귀 (현재 위치 종류에 맞는 mode 사용)
+    if (state.carwashAll) renderCarWashes(state.carwashAll, { mode: nearbyMode() });
     return;
   }
   const mode = state.carwashSearchMode || 'address';
@@ -805,7 +814,8 @@ async function searchCarWashesByKeyword(keyword) {
 }
 
 function renderCarWashes(items, opts = {}) {
-  const { mode = 'nearby-gps', keyword = '', matched = null } = opts;
+  // mode 누락 시 덜 위험한 default = 'nearby-manual' (GPS 강제 라벨 방지)
+  const { mode = 'nearby-manual', keyword = '', matched = null } = opts;
   // GPS 모드만 거리순 강제, 수동/검색은 카카오 응답 순서(인기/정확도) 유지
   const sorted = mode === 'nearby-gps'
     ? [...(items || [])].sort((a, b) =>

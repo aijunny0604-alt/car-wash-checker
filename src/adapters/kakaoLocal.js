@@ -80,12 +80,19 @@ export async function searchByKeyword({ query, lat, lon, radius = 3000, sort = '
  * @param {number} [opts.radius=3000]
  */
 export async function searchCarWashes({ lat, lon, radius = 3000, sort = 'distance' }) {
-  // "세차장" 키워드만으로도 셀프/일반/자동 다 잡히지만, 좀 더 넓게
+  // accuracy(인기순)는 단일 쿼리만 사용 — 두 쿼리 union 시 카카오 인기 랭킹이 경계에서 끊김
+  // distance(거리순)는 두 쿼리 union 후 클라이언트 정렬로 더 많은 결과 확보
+  if (sort === 'accuracy') {
+    const items = await searchByKeyword({
+      query: '세차장', lat, lon, radius, sort: 'accuracy', size: 15,
+    }).catch(() => []);
+    return items.slice(0, 20);
+  }
+  // distance 모드: '세차장' + '셀프세차' 쿼리 union → 거리순 정렬
   const queries = ['세차장', '셀프세차'];
   const results = await Promise.allSettled(
-    queries.map(q => searchByKeyword({ query: q, lat, lon, radius, sort, size: 15 }))
+    queries.map(q => searchByKeyword({ query: q, lat, lon, radius, sort: 'distance', size: 15 }))
   );
-
   const all = [];
   const seen = new Set();
   for (const r of results) {
@@ -96,13 +103,10 @@ export async function searchCarWashes({ lat, lon, radius = 3000, sort = 'distanc
       all.push(item);
     }
   }
-  // sort=distance: 거리순 / sort=accuracy: 카카오 응답 순서(인기/정확도) 유지
-  if (sort === 'distance') {
-    all.sort((a, b) =>
-      (Number.isFinite(a.distance) ? a.distance : Infinity) -
-      (Number.isFinite(b.distance) ? b.distance : Infinity)
-    );
-  }
+  all.sort((a, b) =>
+    (Number.isFinite(a.distance) ? a.distance : Infinity) -
+    (Number.isFinite(b.distance) ? b.distance : Infinity)
+  );
   return all.slice(0, 20);
 }
 
@@ -197,15 +201,20 @@ export async function searchByAddress(query) {
 
 /**
  * 주소 키워드 → 그 위치 주변 세차장 검색
- * 1) 주소를 좌표로 변환 → 2) 그 좌표 주변 세차장 키워드 검색
+ * 1) 주소를 좌표로 변환 → 2) 그 좌표 주변 세차장 (default: accuracy=인기순)
+ *
+ * @param {Object} opts
+ * @param {string} opts.query
+ * @param {number} [opts.radius=3000]
+ * @param {string} [opts.sort='accuracy'] 'distance' | 'accuracy'
  */
-export async function searchCarWashesByAddress({ query, radius = 3000 }) {
+export async function searchCarWashesByAddress({ query, radius = 3000, sort = 'accuracy' }) {
   const addresses = await searchByAddress(query);
   if (!addresses.length) {
     return { matched: null, items: [] };
   }
   const a = addresses[0];
-  const items = await searchCarWashes({ lat: a.lat, lon: a.lon, radius });
+  const items = await searchCarWashes({ lat: a.lat, lon: a.lon, radius, sort });
   return { matched: a, items };
 }
 
