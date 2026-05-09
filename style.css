@@ -13,16 +13,9 @@
   --gap: 16px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0f172a;
-    --surface: #1e293b;
-    --text: #f1f5f9;
-    --muted: #94a3b8;
-    --border: #334155;
-    --shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  }
-}
+/* 다크 모드 자동 적용 비활성 — PC/모바일 모두 라이트 고정 (사용자 요청) */
+/* @media (prefers-color-scheme: dark) { ... } 제거됨 */
+html, body { color-scheme: light; }
 
 *, *::before, *::after { box-sizing: border-box; }
 
