@@ -12,8 +12,10 @@
   <title>세차 OK? · 오늘 세차해도 될까</title>
   <!-- 빌드 타임스탬프로 매번 새 URL → ES module 캐시 우회 -->
   <script>window.__BUILD = Date.now();</script>
-  <!-- 로컬 전용 API 키 (gitignore 처리됨, 없어도 앱 동작) -->
-  <script src="./keys.local.js" onerror="console.info('[keys] keys.local.js 없음 — 무키 어댑터만 사용')"></script>
+  <!-- 로컬 전용 API 키 (gitignore, 로컬 개발 시) -->
+  <script src="./keys.local.js" onerror="console.info('[keys.local] 없음 (정상 — 배포 환경에선 keys.public.js 사용)')"></script>
+  <!-- 빌드 시 GitHub Secret으로 주입되는 공용 키 (Pages 배포본에만 포함) -->
+  <script src="./keys.public.js" onerror="console.info('[keys.public] 없음 (정상 — 로컬에선 keys.local.js 사용)')"></script>
   <link rel="stylesheet" id="cssLink" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E%F0%9F%9A%97%3C/text%3E%3C/svg%3E" />
 </head>

@@ -18,6 +18,8 @@ desktop.ini
 # 로컬 API 키 (절대 커밋 금지)
 src/keys.local.js
 keys.local.js
+# Actions가 빌드 시 자동 생성 — 커밋 금지
+keys.public.js
 
 # 캐시/로그
 *.log

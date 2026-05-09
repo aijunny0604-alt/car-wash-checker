@@ -1,0 +1,56 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# GitHub Pages 배포 권한
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 동시 실행 방지 (마지막 푸시만 배포)
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Inject API keys (Kakao)
+        env:
+          KAKAO_KEY: ${{ secrets.KAKAO_KEY }}
+        run: |
+          # GitHub Secret을 keys.public.js로 출력 (배포된 사이트에만 포함됨)
+          cat > keys.public.js <<EOF
+          // 자동 생성됨 — GitHub Actions 빌드 시 Secret에서 주입
+          window.CWC_KEYS = Object.assign({}, window.CWC_KEYS || {}, {
+            kakao: '${KAKAO_KEY}',
+          });
+          EOF
+          echo "✓ keys.public.js generated ($(wc -c < keys.public.js) bytes)"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
