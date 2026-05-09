@@ -3,7 +3,7 @@
 import { aggregate } from './aggregator.js';
 import { scoreDay } from './scoring.js';
 import { searchPlaces } from './adapters/geocoding.js';
-import { searchCarWashes, classifyCarWash } from './adapters/kakaoLocal.js';
+import { searchCarWashes, searchByKeyword, classifyCarWash } from './adapters/kakaoLocal.js';
 import { KEYS } from './config.js';
 import {
   renderMainCard, renderForecast, renderSources, renderError, renderLoading, setLocationLabel,
@@ -44,6 +44,8 @@ const els = {
   carwashList:    $('#carwashList'),
   carwashCount:   $('#carwashCount'),
   carwashNote:    $('#carwashNote'),
+  carwashSearch:  $('#carwashSearch'),
+  carwashClearBtn: $('#carwashClearBtn'),
   // 검색 UI
   placeSearch:        $('#placeSearch'),
   searchHint:         $('#searchHint'),
@@ -98,6 +100,8 @@ function bindEvents() {
     saveRange(state.rangeDays);
     applyRange();
   }));
+  // 세차장 검색 입력 바인딩 (한 번만)
+  bindCarwashSearch();
   // 초기 활성 버튼 표시 (저장된 값과 맞춤)
   syncRangeButtons();
 }
@@ -315,13 +319,12 @@ function escapeAttr(s) {
 }
 
 // ───── 주변 세차장 검색 ─────
+// ───── 주변 세차장 (반경 20km, 거리순) ─────
+const CARWASH_RADIUS = 20000; // 카카오 API 최대 (20km)
+
 async function loadCarWashes(token) {
   if (!els.carwashSection) return;
-  // 카카오 키 없으면 섹션 숨김
-  if (!KEYS.kakao) {
-    els.carwashSection.hidden = true;
-    return;
-  }
+  if (!KEYS.kakao) { els.carwashSection.hidden = true; return; }
   if (!state.location) return;
 
   els.carwashSection.hidden = false;
@@ -333,47 +336,78 @@ async function loadCarWashes(token) {
     const items = await searchCarWashes({
       lat: state.location.lat,
       lon: state.location.lon,
-      radius: 3000,
+      radius: CARWASH_RADIUS,
     });
-    // 도시가 바뀌었으면 옛 결과 무시
     if (token !== state.loadToken) return;
-
-    if (items.length === 0) {
-      // 반경 넓혀서 한 번 더
-      const wider = await searchCarWashes({
-        lat: state.location.lat,
-        lon: state.location.lon,
-        radius: 10000,
-      });
-      if (token !== state.loadToken) return;
-      renderCarWashes(wider, 10000);
-    } else {
-      renderCarWashes(items, 3000);
-    }
+    state.carwashAll = items; // 검색 필터링용 캐시
+    renderCarWashes(items, { mode: 'nearby' });
   } catch (e) {
     if (token !== state.loadToken) return;
     console.warn('[carwash] 실패', e);
     els.carwashList.innerHTML = `<li class="carwash-empty">세차장 정보를 가져올 수 없습니다</li>`;
     els.carwashNote.hidden = false;
-    els.carwashNote.textContent = `오류: ${e.message || '카카오 API 호출 실패'}. 카카오 콘솔의 Web 플랫폼 도메인 등록을 확인해 주세요.`;
+    els.carwashNote.textContent = `오류: ${e.message || '카카오 API 호출 실패'}`;
   }
 }
 
-function renderCarWashes(items, radius) {
-  if (!items || items.length === 0) {
-    els.carwashList.innerHTML = `<li class="carwash-empty">반경 ${radius/1000}km 안에 세차장이 없어요 🥺</li>`;
+// 검색어로 카카오에 직접 키워드 + 위치 검색
+async function searchCarWashesByKeyword(keyword) {
+  if (!KEYS.kakao || !state.location) return;
+  if (!keyword || keyword.trim().length < 1) {
+    // 빈 검색 → 주변 세차장으로 복귀
+    if (state.carwashAll) renderCarWashes(state.carwashAll, { mode: 'nearby' });
+    return;
+  }
+  els.carwashList.innerHTML = `<li class="carwash-loading">"${escapeHtml(keyword)}" 검색 중…</li>`;
+  els.carwashCount.textContent = '';
+  try {
+    const items = await searchByKeyword({
+      query: keyword + ' 세차장',
+      lat: state.location.lat,
+      lon: state.location.lon,
+      radius: CARWASH_RADIUS,
+      sort: 'distance',
+      size: 15,
+    });
+    // 거리순으로 한 번 더 명시 정렬
+    items.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+    renderCarWashes(items, { mode: 'search', keyword });
+  } catch (e) {
+    console.warn('[carwash search] 실패', e);
+    els.carwashList.innerHTML = `<li class="carwash-empty">검색 실패: ${escapeHtml(e.message || '오류')}</li>`;
+  }
+}
+
+function renderCarWashes(items, opts = {}) {
+  const { mode = 'nearby', keyword = '' } = opts;
+  // 거리순으로 정렬 (이미 정렬돼 있더라도 안전하게 한 번 더)
+  const sorted = [...(items || [])].sort((a, b) => (a.distance || 0) - (b.distance || 0));
+
+  if (!sorted.length) {
+    if (mode === 'search') {
+      els.carwashList.innerHTML = `<li class="carwash-empty">"${escapeHtml(keyword)}" 결과가 없어요. 다른 검색어를 시도해 보세요 🔎</li>`;
+    } else {
+      els.carwashList.innerHTML = `<li class="carwash-empty">반경 ${CARWASH_RADIUS/1000}km 안에 세차장이 없어요 🥺</li>`;
+    }
     els.carwashCount.textContent = '';
     return;
   }
-  els.carwashCount.textContent = `반경 ${radius/1000}km · ${items.length}곳`;
-  els.carwashList.innerHTML = items.slice(0, 12).map(item => {
+
+  // 카운트 라벨
+  if (mode === 'search') {
+    els.carwashCount.textContent = `검색 "${keyword}" · ${sorted.length}곳`;
+  } else {
+    els.carwashCount.textContent = `반경 ${CARWASH_RADIUS/1000}km · ${sorted.length}곳`;
+  }
+
+  els.carwashList.innerHTML = sorted.slice(0, 15).map(item => {
     const kind = classifyCarWash(item.name);
     const tag = kind === 'self' ? '<span class="carwash-item-tag tag-self">셀프</span>'
               : kind === 'auto' ? '<span class="carwash-item-tag tag-auto">자동</span>'
               : '<span class="carwash-item-tag">일반</span>';
-    const distance = Number.isFinite(item.distance)
+    const distance = Number.isFinite(item.distance) && item.distance > 0
       ? (item.distance >= 1000 ? `${(item.distance / 1000).toFixed(1)}km` : `${Math.round(item.distance)}m`)
-      : '';
+      : '거리 미표시';
     const phone = item.phone ? `<span class="carwash-item-phone">☎ ${escapeHtml(item.phone)}</span>` : '';
     const url = item.placeUrl || `https://map.kakao.com/link/map/${encodeURIComponent(item.name)},${item.lat},${item.lon}`;
     return `
@@ -393,6 +427,25 @@ function renderCarWashes(items, radius) {
       </li>
     `;
   }).join('');
+}
+
+// 검색 입력 바인딩 (debounce)
+function bindCarwashSearch() {
+  if (!els.carwashSearch || els.carwashSearch.dataset.bound) return;
+  let timer = null;
+  els.carwashSearch.addEventListener('input', (ev) => {
+    const q = ev.target.value;
+    els.carwashClearBtn.hidden = !q;
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => searchCarWashesByKeyword(q), 320);
+  });
+  els.carwashClearBtn.addEventListener('click', () => {
+    els.carwashSearch.value = '';
+    els.carwashClearBtn.hidden = true;
+    searchCarWashesByKeyword('');
+    els.carwashSearch.focus();
+  });
+  els.carwashSearch.dataset.bound = '1';
 }
 
 async function loadAndRender() {

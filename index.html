@@ -48,6 +48,12 @@
             <h3>🚿 주변 세차장</h3>
             <span id="carwashCount" class="carwash-count"></span>
           </div>
+          <div class="carwash-search-bar">
+            <input id="carwashSearch" class="carwash-search-input" type="text"
+                   placeholder="동/지명/이름으로 검색 (예: 강남, 셀프세차)"
+                   autocomplete="off" />
+            <button id="carwashClearBtn" type="button" class="carwash-clear-btn" hidden aria-label="검색 초기화">✕</button>
+          </div>
           <ul id="carwashList" class="carwash-list"></ul>
           <div id="carwashNote" class="carwash-note" hidden></div>
         </section>
