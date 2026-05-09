@@ -88,6 +88,47 @@ export async function searchCarWashes({ lat, lon, radius = 3000 }) {
 }
 
 /**
+ * 이름 검색 — 사용자 키워드를 다양한 변형으로 동시 호출 후 합집합
+ * 예: "덕포" 입력 → ["덕포 세차장", "덕포 세차", "덕포 셀프세차", "덕포 워시", "덕포"] 5개로 검색
+ *     → "덕포 워시존" 같은 "세차장" 단어 없는 상호도 잡힘
+ * @param {Object} opts
+ * @param {string} opts.keyword - 사용자 입력 키워드
+ * @param {number} opts.lat - 중심 위도
+ * @param {number} opts.lon - 중심 경도
+ * @param {number} [opts.radius=20000]
+ */
+export async function searchCarWashesByName({ keyword, lat, lon, radius = 20000 }) {
+  const k = String(keyword || '').trim();
+  if (!k) return [];
+  // 키워드 변형: 세차 관련 단어와 조합 + 원문 (브랜드명만 입력 케이스)
+  const variants = [
+    `${k} 세차장`,
+    `${k} 세차`,
+    `${k} 셀프세차`,
+    `${k} 워시`,
+    k, // 그대로도 시도 (브랜드 + 동네 합성어 잡기)
+  ];
+  const results = await Promise.allSettled(
+    variants.map(q => searchByKeyword({ query: q, lat, lon, radius, sort: 'distance', size: 15 }))
+  );
+  const all = [];
+  const seen = new Set();
+  for (const r of results) {
+    if (r.status !== 'fulfilled') continue;
+    for (const item of r.value) {
+      if (seen.has(item.id)) continue;
+      // 원문 검색은 세차 관련 카테고리 / 이름 가진 항목만 포함 (학원, 카페 제외)
+      const looksLikeCarWash = /세차|워시|디테일링|wash/i.test(item.name + ' ' + item.category);
+      if (!looksLikeCarWash) continue;
+      seen.add(item.id);
+      all.push(item);
+    }
+  }
+  all.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+  return all.slice(0, 25);
+}
+
+/**
  * 주소 → 좌표 변환 (카카오 주소 API)
  * "강남구", "해운대동", "서울 종로구" 등 입력 → 그 좌표 반환
  * @param {string} query - 주소 키워드

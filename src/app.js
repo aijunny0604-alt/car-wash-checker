@@ -3,7 +3,7 @@
 import { aggregate } from './aggregator.js';
 import { scoreDay } from './scoring.js';
 import { searchPlaces } from './adapters/geocoding.js';
-import { searchCarWashes, searchByKeyword, searchCarWashesByAddress, classifyCarWash } from './adapters/kakaoLocal.js';
+import { searchCarWashes, searchByKeyword, searchCarWashesByAddress, searchCarWashesByName, classifyCarWash } from './adapters/kakaoLocal.js';
 import { KEYS } from './config.js';
 import {
   renderMainCard, renderForecast, renderSources, renderError, renderLoading, setLocationLabel,
@@ -772,16 +772,14 @@ async function searchCarWashesByKeyword(keyword) {
       items.sort((a, b) => (a.distance || 0) - (b.distance || 0));
       renderCarWashes(items, { mode: 'search-address', keyword, matched });
     } else {
-      // 이름 모드: 현재 위치 기준 키워드 검색
-      const items = await searchByKeyword({
-        query: keyword + ' 세차장',
+      // 이름 모드: 다양한 키워드 변형으로 동시 검색 (세차장/세차/셀프세차/워시 + 원문)
+      // → "덕포"만 쳐도 "덕포 워시존" 같은 '세차장' 단어 없는 상호 잡힘
+      const items = await searchCarWashesByName({
+        keyword,
         lat: state.location.lat,
         lon: state.location.lon,
         radius: CARWASH_RADIUS,
-        sort: 'distance',
-        size: 15,
       });
-      items.sort((a, b) => (a.distance || 0) - (b.distance || 0));
       renderCarWashes(items, { mode: 'search-name', keyword });
     }
   } catch (e) {
@@ -807,7 +805,14 @@ function renderCarWashes(items, opts = {}) {
   }
 
   if (mode === 'search-address') {
-    const where = matched ? (matched.region2 || matched.name) : keyword;
+    // 정확한 매칭 지역 표시: "부산 사상구 덕포2동" 형식 (헷갈림 방지)
+    let where;
+    if (matched) {
+      const parts = [matched.region1, matched.region2, matched.region3].filter(Boolean);
+      where = parts.length ? parts.join(' ') : (matched.name || keyword);
+    } else {
+      where = keyword;
+    }
     els.carwashCount.textContent = `📍 ${where} 주변 · ${sorted.length}곳`;
   } else if (mode === 'search-name') {
     els.carwashCount.textContent = `🏪 "${keyword}" · ${sorted.length}곳`;
