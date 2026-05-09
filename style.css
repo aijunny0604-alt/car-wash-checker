@@ -1730,38 +1730,44 @@ button:focus-visible, [role="button"]:focus-visible {
   }
   .date-picker-bar .link-btn { font-size: 0.82rem; padding: 3px 6px; }
 
-  /* 메인 카드 — 세로 더 줄임 */
+  /* 메인 카드 — 세로 최소화 (스크린샷 기준 → 더 컴팩트) */
   .today-card {
-    padding: 8px 12px 8px;
+    padding: 6px 10px 6px;
     min-height: 0;
-    gap: 2px;
+    gap: 0;
   }
-  .today-card .grade-text { font-size: 1.1rem; }
-  .today-card .date-tag { font-size: 0.74rem; margin: 0; }
-  .today-card .reasons { gap: 3px; }
-  .today-card .reasons span { font-size: 0.68rem; padding: 1px 5px; }
-  .today-card .coverage { font-size: 0.62rem; margin-top: 2px; }
-  .today-card .weather-label { font-size: 0.86rem; margin: 0; }
+  .today-card .grade-text { font-size: 1.0rem; }
+  .today-card .date-tag { font-size: 0.7rem; margin: 0; }
+  .today-card .reasons { gap: 3px; margin: 2px 0 0; }
+  .today-card .reasons span { font-size: 0.66rem; padding: 1px 5px; }
+  .today-card .coverage { font-size: 0.6rem; margin-top: 1px; }
+  .today-card .weather-label { font-size: 0.8rem; margin: 0; line-height: 1.2; }
   .today-card .best-badge,
-  .today-card .climate-badge { font-size: 0.66rem; padding: 1px 7px; }
+  .today-card .climate-badge { font-size: 0.62rem; padding: 1px 6px; }
 
-  /* 인포그래픽 — 강조 유지하면서 컨테이너 줄임에 맞춰 살짝 축소 */
+  /* 인포그래픽 — 한 단 더 축소 + 게이지를 해 위로 겹쳐 세로 절약 */
   .weather-stage {
-    width: 130px;
-    height: 96px;
+    width: 110px;
+    height: 78px;
     margin: 0 auto;
   }
-  .score-gauge { width: 86px; height: 86px; margin-top: -4px; }
-  .score-gauge .gauge-num { font-size: 1.35rem; }
-  .score-gauge .gauge-label { font-size: 0.58rem; }
+  .score-gauge { width: 72px; height: 72px; margin-top: -8px; }
+  .score-gauge .gauge-num { font-size: 1.15rem; }
+  .score-gauge .gauge-label { font-size: 0.55rem; }
   .score-gauge .gauge-bg, .score-gauge .gauge-fg { stroke-width: 9; }
 
-  /* 메트릭 카드 — 4열 유지 + 컴팩트화 (하단 내용 작게 → 컨테이너 세로 축소) */
-  .metric-row { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
-  .metric { padding: 5px 3px; gap: 1px; }
-  .metric .metric-vis { height: 24px; }
-  .metric .v { font-size: 0.78rem; }
-  .metric .lbl { font-size: 0.6rem; }
+  /* 메트릭 카드 — 4열 강제 (2열 폴백 차단) + 더 컴팩트 */
+  .metric-row {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 3px !important;
+    margin-top: 3px;
+  }
+  .metric { padding: 3px 2px !important; gap: 0 !important; }
+  .metric .metric-vis { height: 20px !important; }
+  .metric .v { font-size: 0.72rem !important; }
+  .metric .lbl { font-size: 0.55rem !important; }
+  /* gear-row(추천 장비) 모바일에선 한 줄에 빡빡하게 */
+  .today-card .gear-row { margin-top: 2px; }
 
   /* 추천 장비 칩 작게 */
   .gear-row { gap: 4px; }
@@ -1912,10 +1918,7 @@ button:focus-visible, [role="button"]:focus-visible {
     width: 100%;
     gap: 6px;
   }
-  /* 화면 너무 좁으면 2열 */
-  @media (max-width: 600px) {
-    .metric-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  }
+  /* 좁은 화면에서도 4열 유지 (사용자 요청: 세로 압축 우선) */
   /* 메트릭 카드 자체가 컨테이너 넘치지 않도록 */
   .metric { min-width: 0; }
   .metric .v {
