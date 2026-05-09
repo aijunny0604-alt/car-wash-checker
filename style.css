@@ -1716,44 +1716,44 @@ button:focus-visible, [role="button"]:focus-visible {
   }
 
   /* 헤더/메인 패딩 줄이기 */
-  .app-header { padding: 10px 12px; }
-  .app-header h1 { font-size: 1.0rem; }
-  main.layout { padding: 0 10px 16px; gap: 10px; }
+  .app-header { padding: 6px 12px; }
+  .app-header h1 { font-size: 0.95rem; }
+  main.layout { padding: 0 10px 12px; gap: 8px; }
 
   /* 위치/날짜 바 콤팩트 */
-  .top-bar { gap: 8px; margin-top: 10px; }
-  .location-bar { padding: 8px 12px; font-size: 0.92rem; }
-  .date-picker-bar { padding: 8px 12px; gap: 6px; }
-  .date-picker-bar label { font-size: 0.85rem; }
+  .top-bar { gap: 6px; margin-top: 6px; }
+  .location-bar { padding: 6px 12px; font-size: 0.9rem; }
+  .date-picker-bar { padding: 6px 12px; gap: 6px; }
+  .date-picker-bar label { font-size: 0.82rem; }
   .date-picker-bar input[type="date"] {
-    font-size: 0.85rem; padding: 5px 8px; min-width: 110px;
+    font-size: 0.82rem; padding: 4px 8px; min-width: 110px;
   }
-  .date-picker-bar .link-btn { font-size: 0.85rem; padding: 4px 6px; }
+  .date-picker-bar .link-btn { font-size: 0.82rem; padding: 3px 6px; }
 
-  /* 메인 카드 콤팩트 — 컨테이너 자체 더 작게 */
+  /* 메인 카드 — 세로 더 줄임 */
   .today-card {
-    padding: 12px 12px 10px;
+    padding: 8px 12px 8px;
     min-height: 0;
-    gap: 4px;
+    gap: 2px;
   }
-  .today-card .grade-text { font-size: 1.2rem; }
-  .today-card .date-tag { font-size: 0.78rem; margin: 0; }
+  .today-card .grade-text { font-size: 1.1rem; }
+  .today-card .date-tag { font-size: 0.74rem; margin: 0; }
   .today-card .reasons { gap: 3px; }
-  .today-card .reasons span { font-size: 0.72rem; padding: 2px 6px; }
-  .today-card .coverage { font-size: 0.65rem; }
-  .today-card .weather-label { font-size: 0.92rem; margin: 2px 0; }
+  .today-card .reasons span { font-size: 0.68rem; padding: 1px 5px; }
+  .today-card .coverage { font-size: 0.62rem; margin-top: 2px; }
+  .today-card .weather-label { font-size: 0.86rem; margin: 0; }
   .today-card .best-badge,
-  .today-card .climate-badge { font-size: 0.7rem; padding: 2px 8px; }
+  .today-card .climate-badge { font-size: 0.66rem; padding: 1px 7px; }
 
-  /* 인포그래픽 — 사용자 요청: 한 단 키움 (시각적 강조 유지) */
+  /* 인포그래픽 — 강조 유지하면서 컨테이너 줄임에 맞춰 살짝 축소 */
   .weather-stage {
-    width: 160px;
-    height: 120px;
+    width: 130px;
+    height: 96px;
     margin: 0 auto;
   }
-  .score-gauge { width: 100px; height: 100px; }
-  .score-gauge .gauge-num { font-size: 1.55rem; }
-  .score-gauge .gauge-label { font-size: 0.62rem; }
+  .score-gauge { width: 86px; height: 86px; margin-top: -4px; }
+  .score-gauge .gauge-num { font-size: 1.35rem; }
+  .score-gauge .gauge-label { font-size: 0.58rem; }
   .score-gauge .gauge-bg, .score-gauge .gauge-fg { stroke-width: 9; }
 
   /* 메트릭 카드 — 4열 유지 + 컴팩트화 (하단 내용 작게 → 컨테이너 세로 축소) */
@@ -1768,10 +1768,10 @@ button:focus-visible, [role="button"]:focus-visible {
   .gear-item { padding: 3px 8px 3px 5px; font-size: 0.72rem; }
   .gear-item .gear-icon { font-size: 0.95rem; }
 
-  /* 시간별 그래프 — 컨테이너 패딩 줄이고 SVG는 자동 비율 */
-  .hourly-section { padding: 12px 6px 8px; }
-  .hourly-section h3 { font-size: 0.88rem; margin: 0 0 6px; }
-  .sparkline { height: 150px; }
+  /* 시간별 그래프 — 컨테이너 패딩 줄이고 SVG 높이 축소 */
+  .hourly-section { padding: 8px 6px 6px; }
+  .hourly-section h3 { font-size: 0.85rem; margin: 0 0 4px; }
+  .sparkline { height: 120px; }
   /* SVG 내부 글자 모바일에선 살짝 키워서 가독성 */
   .chart-axis-label { font-size: 14px; }
   .chart-axis-unit { font-size: 12px; }
@@ -1780,13 +1780,13 @@ button:focus-visible, [role="button"]:focus-visible {
 
   .legend { font-size: 0.72rem; gap: 8px; }
 
-  /* 대기질 섹션 */
-  .air-section { padding: 12px 12px 10px; }
-  .air-head h3 { font-size: 0.88rem; }
-  .air-overall-badge { font-size: 0.72rem; padding: 3px 10px; }
+  /* 대기질 섹션 — 패딩 축소 */
+  .air-section { padding: 8px 10px 8px; }
+  .air-head h3 { font-size: 0.85rem; }
+  .air-overall-badge { font-size: 0.7rem; padding: 2px 8px; }
   .air-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
-  .air-card { padding: 10px 10px 8px; border-radius: 10px; }
-  .air-card-num { font-size: 1.4rem; }
+  .air-card { padding: 6px 8px 6px; border-radius: 10px; }
+  .air-card-num { font-size: 1.25rem; }
   .air-card-unit { font-size: 0.65rem; }
   .air-card-code { font-size: 0.72rem; }
   .air-card-name { font-size: 0.65rem; }
@@ -1820,17 +1820,17 @@ button:focus-visible, [role="button"]:focus-visible {
   .range-toggle { gap: 2px; padding: 3px; }
   .range-btn { padding: 4px 8px; font-size: 0.72rem; }
 
-  .forecast-head { flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-  .forecast-head h2 { font-size: 0.95rem; }
+  .forecast-head { flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+  .forecast-head h2 { font-size: 0.9rem; }
 
-  /* 세차장 섹션 */
-  .carwash-section { padding: 12px 12px 10px; }
-  .carwash-head h3 { font-size: 0.88rem; }
-  .carwash-list { max-height: 320px; }
-  .carwash-item { padding: 9px 10px; }
-  .carwash-item-name { font-size: 0.85rem; }
-  .carwash-item-distance { font-size: 0.72rem; }
-  .carwash-item-address { font-size: 0.72rem; }
+  /* 세차장 섹션 — 패딩 축소 + 리스트 높이 줄임 (스크롤 부담↓) */
+  .carwash-section { padding: 8px 10px 8px; }
+  .carwash-head h3 { font-size: 0.85rem; }
+  .carwash-list { max-height: 240px; }
+  .carwash-item { padding: 6px 10px; }
+  .carwash-item-name { font-size: 0.82rem; }
+  .carwash-item-distance { font-size: 0.7rem; }
+  .carwash-item-address { font-size: 0.7rem; }
 
   /* 검색 모달 */
   dialog.city-picker {
