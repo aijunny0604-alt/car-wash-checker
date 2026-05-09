@@ -120,6 +120,8 @@ export async function searchCarWashesByName({ keyword, lat, lon, radius = 20000 
       // 원문 검색은 세차 관련 카테고리 / 이름 가진 항목만 포함 (학원, 카페 제외)
       const looksLikeCarWash = /세차|워시|디테일링|wash/i.test(item.name + ' ' + item.category);
       if (!looksLikeCarWash) continue;
+      // 반경 내 결과만 (카카오가 광역 보정해서 멀리 있는 동명 가게 보내는 케이스 차단)
+      if (Number.isFinite(item.distance) && item.distance > radius) continue;
       seen.add(item.id);
       all.push(item);
     }

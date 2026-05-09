@@ -520,6 +520,12 @@ function pickPlace(loc) {
   saveLocation(state.location);
   const labelText = loc.label || loc.name || '선택한 위치';
   setLocationLabel(els.location, loc.region ? `${labelText} · ${loc.region}` : labelText);
+  // 위치 변경 시 직전 도시 세차장 캐시/검색창 초기화 — 이전 결과 잔존 방지
+  state.carwashAll = null;
+  if (els.carwashSearch) {
+    els.carwashSearch.value = '';
+    if (els.carwashClearBtn) els.carwashClearBtn.hidden = true;
+  }
   // 최근 검색 안 남기기 모드가 아닐 때만 저장
   if (!isRecentDisabled()) {
     addRecent({
@@ -724,6 +730,8 @@ async function loadCarWashes(token) {
   if (!KEYS.kakao) { els.carwashSection.hidden = true; return; }
   if (!state.location) return;
 
+  // 새 위치로 진입 — 이전 도시 캐시는 즉시 폐기
+  state.carwashAll = null;
   els.carwashSection.hidden = false;
   els.carwashList.innerHTML = `<li class="carwash-loading">주변 세차장 찾는 중…</li>`;
   els.carwashCount.textContent = '';
@@ -736,8 +744,12 @@ async function loadCarWashes(token) {
       radius: CARWASH_RADIUS,
     });
     if (token !== state.loadToken) return;
-    state.carwashAll = items; // 검색 필터링용 캐시
-    renderCarWashes(items, { mode: 'nearby' });
+    // 카카오가 광역 보정한 결과 차단 — 반경 밖 항목 제거
+    const filtered = items.filter(it =>
+      Number.isFinite(it.distance) && it.distance <= CARWASH_RADIUS
+    );
+    state.carwashAll = filtered;
+    renderCarWashes(filtered, { mode: 'nearby' });
   } catch (e) {
     if (token !== state.loadToken) return;
     console.warn('[carwash] 실패', e);
