@@ -137,24 +137,37 @@ async function initLocation() {
 }
 
 async function openCityPicker() {
-  // 1) 주요 도시 (presets) — 한 번만 로드
+  // 1) 주요 도시 (presets) — 드릴다운 가능 (도시 → 구)
   if (!els.cityList.dataset.loaded) {
     try {
-      const cities = await loadCities();
-      els.cityList.innerHTML = cities.map(c => `
-        <li><button type="button"
-            data-lat="${c.lat}" data-lon="${c.lon}" data-name="${c.name}">
-          <span class="place-name">${escapeHtml(c.name)}</span>
-        </button></li>
-      `).join('');
+      const [cities, districts] = await Promise.all([
+        loadCities(),
+        loadDistricts(),
+      ]);
+      state.allCities = cities;
+      state.allDistricts = districts;
+      renderCityPresets();
       els.cityList.dataset.loaded = '1';
+      // 도시/구 클릭 위임 핸들러 (드릴다운 + 선택)
       els.cityList.addEventListener('click', (ev) => {
+        const drillBtn = ev.target.closest('button[data-drill]');
+        if (drillBtn) {
+          ev.preventDefault();
+          const cityId = drillBtn.dataset.drill;
+          if (cityId === 'back') {
+            renderCityPresets();
+          } else {
+            renderDistrictList(cityId);
+          }
+          return;
+        }
         const btn = ev.target.closest('button[data-lat]');
         if (!btn) return;
         pickPlace({
           lat: Number(btn.dataset.lat),
           lon: Number(btn.dataset.lon),
           label: btn.dataset.name,
+          region: btn.dataset.region || '',
         });
       });
     } catch (e) {
@@ -230,6 +243,80 @@ function onPlaceListClick(ev) {
     label: btn.dataset.name,
     region: btn.dataset.region || '',
   });
+}
+
+// ───── 도시 → 구 드릴다운 ─────
+async function loadDistricts() {
+  try {
+    const res = await fetch('./data/districts.json');
+    if (!res.ok) return {};
+    return await res.json();
+  } catch { return {}; }
+}
+
+function renderCityPresets() {
+  const cities = state.allCities || [];
+  const districts = state.allDistricts || {};
+  els.cityList.innerHTML = cities.map(c => {
+    const hasDistricts = districts[c.id] && districts[c.id].districts?.length > 0;
+    if (hasDistricts) {
+      // 드릴다운 가능 도시 — 본체 클릭 = 도시 전체 선택, 화살표 클릭 = 펼치기
+      return `
+        <li class="city-with-drill">
+          <button type="button"
+              data-lat="${c.lat}" data-lon="${c.lon}" data-name="${escapeAttr(c.name)}">
+            <span class="place-name">${escapeHtml(c.name)}</span>
+          </button>
+          <button type="button" class="city-drill-btn" data-drill="${c.id}" aria-label="${escapeAttr(c.name)} 하위 지역 보기">
+            <span>구·군 ▸</span>
+          </button>
+        </li>
+      `;
+    }
+    return `
+      <li><button type="button"
+          data-lat="${c.lat}" data-lon="${c.lon}" data-name="${escapeAttr(c.name)}">
+        <span class="place-name">${escapeHtml(c.name)}</span>
+      </button></li>
+    `;
+  }).join('');
+}
+
+function renderDistrictList(cityId) {
+  const districts = state.allDistricts || {};
+  const data = districts[cityId];
+  if (!data) {
+    renderCityPresets();
+    return;
+  }
+  els.cityList.innerHTML = `
+    <li class="district-back-row">
+      <button type="button" class="district-back-btn" data-drill="back">◂ 주요 도시로 돌아가기</button>
+    </li>
+    <li class="district-header">
+      <button type="button"
+          data-lat="${getCityLat(cityId)}" data-lon="${getCityLon(cityId)}"
+          data-name="${escapeAttr(data.name)}">
+        <span class="place-name">📍 ${escapeHtml(data.name)} 전체</span>
+      </button>
+    </li>
+    ${data.districts.map(d => `
+      <li><button type="button"
+          data-lat="${d.lat}" data-lon="${d.lon}"
+          data-name="${escapeAttr(d.name)}"
+          data-region="${escapeAttr(data.name)}">
+        <span class="place-name">${escapeHtml(d.name)}</span>
+        <span class="place-region">${escapeHtml(data.name)}</span>
+      </button></li>
+    `).join('')}
+  `;
+}
+
+function getCityLat(id) {
+  return (state.allCities || []).find(c => c.id === id)?.lat || 0;
+}
+function getCityLon(id) {
+  return (state.allCities || []).find(c => c.id === id)?.lon || 0;
 }
 
 function pickPlace(loc) {

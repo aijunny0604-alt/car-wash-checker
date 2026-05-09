@@ -1541,6 +1541,66 @@ dialog::backdrop { background: rgba(0,0,0,0.4); }
 .city-list li button:hover, .city-list li button:focus-visible {
   background: var(--bg); outline: none;
 }
+
+/* 도시 + 드릴다운 버튼 (구·군 ▸) */
+.city-with-drill {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+.city-with-drill > button:first-child { flex: 1; }
+.city-drill-btn {
+  flex: 0 0 auto;
+  padding: 0 12px !important;
+  font-size: 0.75rem !important;
+  color: var(--primary) !important;
+  background: rgba(14, 165, 233, 0.08) !important;
+  font-weight: 700;
+  border-radius: 8px !important;
+  white-space: nowrap;
+}
+.city-drill-btn:hover {
+  background: rgba(14, 165, 233, 0.16) !important;
+}
+
+/* 뒤로가기 행 */
+.district-back-row { padding: 4px 0; }
+.district-back-btn {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 8px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.district-back-btn:hover {
+  color: var(--primary);
+  background: var(--bg);
+}
+
+/* 도시 전체 선택 행 (구 목록 위) */
+.district-header {
+  border-bottom: 1px dashed var(--border);
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+}
+.district-header button {
+  background: rgba(14, 165, 233, 0.06) !important;
+  font-weight: 700;
+}
+
+/* 구·군 항목 안 region 텍스트 작게 */
+.city-list li button > span.place-region {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 400;
+  margin-top: 1px;
+}
 .source-toggles li {
   display: flex; align-items: center; gap: 10px;
   padding: 6px 4px; border-bottom: 1px dashed var(--border);
