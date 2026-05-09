@@ -12,6 +12,7 @@ const FALLBACK_KEYS = {
   airKorea: '',        // https://www.data.go.kr/data/15073861/openapi.do
   waqi: '',            // https://aqicn.org/data-platform/token/
   iqAir: '',           // https://www.iqair.com/air-pollution-data-api
+  kakao: '',           // https://developers.kakao.com REST API 키 (장소 검색용)
 };
 
 export const KEYS = Object.assign({}, FALLBACK_KEYS, (typeof window !== 'undefined' && window.CWC_KEYS) || {});

@@ -3,6 +3,8 @@
 import { aggregate } from './aggregator.js';
 import { scoreDay } from './scoring.js';
 import { searchPlaces } from './adapters/geocoding.js';
+import { searchCarWashes, classifyCarWash } from './adapters/kakaoLocal.js';
+import { KEYS } from './config.js';
 import {
   renderMainCard, renderForecast, renderSources, renderError, renderLoading, setLocationLabel,
   renderHourlyChart, renderAirSection,
@@ -37,6 +39,11 @@ const els = {
   rangeBtns:     document.querySelectorAll('.range-btn'),
   climateNote:   $('#climateNote'),
   indicator:     $('#selectIndicator'),
+  // 세차장 섹션
+  carwashSection: $('#carwashSection'),
+  carwashList:    $('#carwashList'),
+  carwashCount:   $('#carwashCount'),
+  carwashNote:    $('#carwashNote'),
   // 검색 UI
   placeSearch:        $('#placeSearch'),
   searchHint:         $('#searchHint'),
@@ -307,6 +314,87 @@ function escapeAttr(s) {
   return escapeHtml(s);
 }
 
+// ───── 주변 세차장 검색 ─────
+async function loadCarWashes(token) {
+  if (!els.carwashSection) return;
+  // 카카오 키 없으면 섹션 숨김
+  if (!KEYS.kakao) {
+    els.carwashSection.hidden = true;
+    return;
+  }
+  if (!state.location) return;
+
+  els.carwashSection.hidden = false;
+  els.carwashList.innerHTML = `<li class="carwash-loading">주변 세차장 찾는 중…</li>`;
+  els.carwashCount.textContent = '';
+  els.carwashNote.hidden = true;
+
+  try {
+    const items = await searchCarWashes({
+      lat: state.location.lat,
+      lon: state.location.lon,
+      radius: 3000,
+    });
+    // 도시가 바뀌었으면 옛 결과 무시
+    if (token !== state.loadToken) return;
+
+    if (items.length === 0) {
+      // 반경 넓혀서 한 번 더
+      const wider = await searchCarWashes({
+        lat: state.location.lat,
+        lon: state.location.lon,
+        radius: 10000,
+      });
+      if (token !== state.loadToken) return;
+      renderCarWashes(wider, 10000);
+    } else {
+      renderCarWashes(items, 3000);
+    }
+  } catch (e) {
+    if (token !== state.loadToken) return;
+    console.warn('[carwash] 실패', e);
+    els.carwashList.innerHTML = `<li class="carwash-empty">세차장 정보를 가져올 수 없습니다</li>`;
+    els.carwashNote.hidden = false;
+    els.carwashNote.textContent = `오류: ${e.message || '카카오 API 호출 실패'}. 카카오 콘솔의 Web 플랫폼 도메인 등록을 확인해 주세요.`;
+  }
+}
+
+function renderCarWashes(items, radius) {
+  if (!items || items.length === 0) {
+    els.carwashList.innerHTML = `<li class="carwash-empty">반경 ${radius/1000}km 안에 세차장이 없어요 🥺</li>`;
+    els.carwashCount.textContent = '';
+    return;
+  }
+  els.carwashCount.textContent = `반경 ${radius/1000}km · ${items.length}곳`;
+  els.carwashList.innerHTML = items.slice(0, 12).map(item => {
+    const kind = classifyCarWash(item.name);
+    const tag = kind === 'self' ? '<span class="carwash-item-tag tag-self">셀프</span>'
+              : kind === 'auto' ? '<span class="carwash-item-tag tag-auto">자동</span>'
+              : '<span class="carwash-item-tag">일반</span>';
+    const distance = Number.isFinite(item.distance)
+      ? (item.distance >= 1000 ? `${(item.distance / 1000).toFixed(1)}km` : `${Math.round(item.distance)}m`)
+      : '';
+    const phone = item.phone ? `<span class="carwash-item-phone">☎ ${escapeHtml(item.phone)}</span>` : '';
+    const url = item.placeUrl || `https://map.kakao.com/link/map/${encodeURIComponent(item.name)},${item.lat},${item.lon}`;
+    return `
+      <li>
+        <a class="carwash-item" href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer">
+          <div class="carwash-item-head">
+            <span class="carwash-item-icon" aria-hidden="true">🚿</span>
+            <span class="carwash-item-name">${escapeHtml(item.name)}</span>
+            <span class="carwash-item-distance">📍 ${distance}</span>
+          </div>
+          <div class="carwash-item-address">${escapeHtml(item.roadAddress || item.address)}</div>
+          <div class="carwash-item-meta">
+            ${tag}
+            ${phone}
+          </div>
+        </a>
+      </li>
+    `;
+  }).join('');
+}
+
 async function loadAndRender() {
   if (!state.location) return;
   // 매 호출마다 토큰 발급 — 도시 변경 race 방지 (stale climatePromise 무시용)
@@ -365,6 +453,9 @@ async function loadAndRender() {
   state.sources  = agg.sources;
   applyRange();
   renderSources(els.sourcesLine, agg.sources);
+
+  // 주변 세차장 (카카오 키 있을 때만, 백그라운드)
+  loadCarWashes(token);
 
   // climatology 백그라운드 도착 시 추가 카드 채우기 (토큰 검증으로 stale 방지)
   if (agg.climatePromise) {
