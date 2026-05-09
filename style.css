@@ -1610,27 +1610,30 @@ dialog::backdrop { background: rgba(0,0,0,0.4); }
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* ▸ 드릴다운 아이콘 — 카드 우상단 */
+/* ▸ 드릴다운 아이콘 — 카드 우상단, 항상 명확하게 표시 */
 .city-drill-icon,
 .district-drill-icon {
   position: absolute;
-  top: 6px;
-  right: 8px;
-  font-size: 0.8rem;
-  color: var(--primary);
-  opacity: 0.6;
-  transition: opacity 0.15s, transform 0.15s;
-  padding: 2px 4px;
-  border-radius: 6px;
-  background: rgba(14, 165, 233, 0.1);
+  top: 5px;
+  right: 5px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+  opacity: 1;
+  transition: transform 0.15s, background 0.15s;
+  padding: 3px 7px;
+  border-radius: 8px;
+  background: var(--primary);
   pointer-events: auto;
   line-height: 1;
+  box-shadow: 0 1px 3px rgba(14, 165, 233, 0.3);
+  min-width: 22px;
+  text-align: center;
 }
 .city-preset-btn:hover .city-drill-icon,
 .district-card-btn:hover .district-drill-icon {
-  opacity: 1;
-  transform: translateX(2px);
-  background: rgba(14, 165, 233, 0.2);
+  transform: translateX(2px) scale(1.05);
+  background: #0284c7;
 }
 
 /* 동 카드 — 색상 살짝 다르게 (구분감) */
@@ -1961,7 +1964,7 @@ button:focus-visible, [role="button"]:focus-visible {
   .city-preset-btn .place-region,
   .district-card-btn .place-region,
   .dong-card-btn .place-region { font-size: 0.65rem; }
-  .city-drill-icon, .district-drill-icon { font-size: 0.7rem; top: 4px; right: 5px; padding: 1px 3px; }
+  .city-drill-icon, .district-drill-icon { font-size: 0.85rem; top: 4px; right: 4px; padding: 2px 6px; min-width: 20px; }
 
   /* 판단 기준 푸터 */
   .criteria-info { padding: 10px 12px; }
