@@ -3,7 +3,7 @@
 import { aggregate } from './aggregator.js';
 import { scoreDay } from './scoring.js';
 import { searchPlaces } from './adapters/geocoding.js';
-import { searchCarWashes, searchByKeyword, classifyCarWash } from './adapters/kakaoLocal.js';
+import { searchCarWashes, searchByKeyword, searchCarWashesByAddress, classifyCarWash } from './adapters/kakaoLocal.js';
 import { KEYS } from './config.js';
 import {
   renderMainCard, renderForecast, renderSources, renderError, renderLoading, setLocationLabel,
@@ -46,6 +46,10 @@ const els = {
   carwashNote:    $('#carwashNote'),
   carwashSearch:  $('#carwashSearch'),
   carwashClearBtn: $('#carwashClearBtn'),
+  carwashTabAddress: $('#carwashTabAddress'),
+  carwashTabName:    $('#carwashTabName'),
+  carwashSearchIcon: $('#carwashSearchIcon'),
+  carwashSearchHint: $('#carwashSearchHint'),
   // 검색 UI
   placeSearch:        $('#placeSearch'),
   searchHint:         $('#searchHint'),
@@ -65,6 +69,7 @@ const state = {
   selectedDate: null,
   bestDate: null,
   rangeDays: loadRange(), // 7 | 14 | 16
+  carwashSearchMode: 'address', // 'address' | 'name'
 };
 
 main();
@@ -247,6 +252,8 @@ async function openCityPicker() {
     els.searchResults.addEventListener('click', onPlaceListClick);
     els.recentList.addEventListener('click', onPlaceListClick);
     els.favoritesList.addEventListener('click', onPlaceListClick);
+    // recent-actions-bar (전체 삭제/안 남기기) 버튼은 recentBlock 내부에 동적 추가됨
+    els.recentBlock?.addEventListener('click', onPlaceListClick);
     els.placeSearch.dataset.bound = '1';
   }
 
@@ -264,6 +271,31 @@ async function openCityPicker() {
 }
 
 function onPlaceListClick(ev) {
+  // 헤더 액션 (전체 삭제 / 안 남기기 토글)
+  const actionBtn = ev.target.closest('[data-action]');
+  if (actionBtn) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const action = actionBtn.dataset.action;
+    if (action === 'clear-recent') {
+      if (confirm('최근 검색 기록을 모두 삭제할까요?')) clearAllRecents();
+    } else if (action === 'disable-recent') {
+      setRecentDisabled(true);
+      clearAllRecents();
+    } else if (action === 'enable-recent') {
+      setRecentDisabled(false);
+      renderRecents();
+    }
+    return;
+  }
+  // 개별 항목 ✕ 삭제
+  const removeBtn = ev.target.closest('[data-remove-recent]');
+  if (removeBtn) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    removeRecent(removeBtn.dataset.lat, removeBtn.dataset.lon);
+    return;
+  }
   const btn = ev.target.closest('button[data-lat]');
   if (!btn) return;
   // 즐겨찾기 별 버튼이면 토글
@@ -477,16 +509,40 @@ function pickPlace(loc) {
   saveLocation(state.location);
   const labelText = loc.label || loc.name || '선택한 위치';
   setLocationLabel(els.location, loc.region ? `${labelText} · ${loc.region}` : labelText);
-  // name과 label 둘 다 저장 — 어느 키로 호출해도 표시되도록
-  addRecent({
-    name: labelText,
-    label: labelText,
-    region: loc.region || '',
-    lat: loc.lat,
-    lon: loc.lon,
-  });
+  // 최근 검색 안 남기기 모드가 아닐 때만 저장
+  if (!isRecentDisabled()) {
+    addRecent({
+      name: labelText,
+      label: labelText,
+      region: loc.region || '',
+      lat: loc.lat,
+      lon: loc.lon,
+    });
+  }
   els.cityPicker.close();
   loadAndRender();
+}
+
+// ───── 최근 검색 안 남기기 옵션 ─────
+function isRecentDisabled() {
+  try { return localStorage.getItem('cwc.recents.disabled') === '1'; } catch { return false; }
+}
+function setRecentDisabled(v) {
+  try {
+    if (v) localStorage.setItem('cwc.recents.disabled', '1');
+    else localStorage.removeItem('cwc.recents.disabled');
+  } catch {}
+}
+function clearAllRecents() {
+  try { localStorage.removeItem('cwc.recents'); } catch {}
+  renderRecents();
+}
+function removeRecent(lat, lon) {
+  const list = loadRecents();
+  const k = `${Number(lat).toFixed(3)},${Number(lon).toFixed(3)}`;
+  const filtered = list.filter(r => `${Number(r.lat).toFixed(3)},${Number(r.lon).toFixed(3)}` !== k);
+  saveRecents(filtered);
+  renderRecents();
 }
 
 function placeItemHtml(r) {
@@ -567,10 +623,76 @@ function addRecent(loc) {
   saveRecents(filtered);
 }
 function renderRecents() {
-  const list = loadRecents();
-  els.recentBlock.hidden = list.length === 0;
-  if (!list.length) return;
-  els.recentList.innerHTML = list.map(r => placeItemHtml({ ...r, region: r.region || '' })).join('');
+  const disabled = isRecentDisabled();
+  const list = disabled ? [] : loadRecents();
+  // 옵션: 안 남기기 켜져 있으면 안내 + 끄기 버튼만 표시
+  if (disabled) {
+    els.recentBlock.hidden = false;
+    renderRecentHeader({ disabled: true, count: 0 });
+    els.recentList.innerHTML = `
+      <li class="recent-disabled-note">
+        🛡 최근 검색 안 남기기 모드입니다. 위 버튼으로 다시 켤 수 있어요.
+      </li>
+    `;
+    return;
+  }
+  if (!list.length) {
+    els.recentBlock.hidden = true;
+    return;
+  }
+  els.recentBlock.hidden = false;
+  renderRecentHeader({ disabled: false, count: list.length });
+  els.recentList.innerHTML = list.map(r => recentItemHtml(r)).join('');
+}
+
+function renderRecentHeader({ disabled, count }) {
+  // 헤더는 recentBlock 내부 첫 자식 — 동적 생성/갱신
+  let header = els.recentBlock.querySelector('.recent-actions-bar');
+  if (!header) {
+    header = document.createElement('div');
+    header.className = 'recent-actions-bar';
+    // search-block-title 다음에 삽입
+    const title = els.recentBlock.querySelector('.search-block-title');
+    if (title) title.insertAdjacentElement('afterend', header);
+    else els.recentBlock.prepend(header);
+  }
+  if (disabled) {
+    header.innerHTML = `
+      <button type="button" class="recent-action-btn" data-action="enable-recent">
+        🔓 최근 검색 다시 켜기
+      </button>
+    `;
+  } else {
+    header.innerHTML = `
+      <button type="button" class="recent-action-btn ghost" data-action="disable-recent" title="최근 검색을 저장하지 않음">
+        🛡 안 남기기
+      </button>
+      <button type="button" class="recent-action-btn danger" data-action="clear-recent" ${count===0?'disabled':''}>
+        🗑 전체 삭제
+      </button>
+    `;
+  }
+}
+
+function recentItemHtml(r) {
+  const fav = isFavorite(r) ? 'is-fav' : '';
+  const star = isFavorite(r) ? '⭐' : '☆';
+  const displayName = r.name || r.label || (r.region ? r.region.split(' ').pop() : '저장된 위치');
+  const region = r.region || '';
+  return `
+    <li>
+      <button type="button" class="place-row"
+          data-lat="${r.lat}" data-lon="${r.lon}"
+          data-name="${escapeAttr(displayName)}" data-region="${escapeAttr(region)}">
+        <span class="place-text">
+          <span class="place-name">${escapeHtml(displayName)}</span>
+          <span class="place-region">${escapeHtml(region)}</span>
+        </span>
+        <span class="place-fav-btn ${fav}" title="즐겨찾기">${star}</span>
+        <span class="recent-remove-btn" data-remove-recent data-lat="${r.lat}" data-lon="${r.lon}" title="이 항목 삭제" aria-label="이 항목 삭제">✕</span>
+      </button>
+    </li>
+  `;
 }
 
 function escapeHtml(s) {
@@ -614,7 +736,7 @@ async function loadCarWashes(token) {
   }
 }
 
-// 검색어로 카카오에 직접 키워드 + 위치 검색
+// 검색어로 카카오 검색 — 모드별 분기
 async function searchCarWashesByKeyword(keyword) {
   if (!KEYS.kakao || !state.location) return;
   if (!keyword || keyword.trim().length < 1) {
@@ -622,20 +744,35 @@ async function searchCarWashesByKeyword(keyword) {
     if (state.carwashAll) renderCarWashes(state.carwashAll, { mode: 'nearby' });
     return;
   }
+  const mode = state.carwashSearchMode || 'address';
   els.carwashList.innerHTML = `<li class="carwash-loading">"${escapeHtml(keyword)}" 검색 중…</li>`;
   els.carwashCount.textContent = '';
   try {
-    const items = await searchByKeyword({
-      query: keyword + ' 세차장',
-      lat: state.location.lat,
-      lon: state.location.lon,
-      radius: CARWASH_RADIUS,
-      sort: 'distance',
-      size: 15,
-    });
-    // 거리순으로 한 번 더 명시 정렬
-    items.sort((a, b) => (a.distance || 0) - (b.distance || 0));
-    renderCarWashes(items, { mode: 'search', keyword });
+    if (mode === 'address') {
+      // 주소 모드: "강남구" → 강남구 좌표 → 주변 세차장
+      const { matched, items } = await searchCarWashesByAddress({
+        query: keyword,
+        radius: CARWASH_RADIUS,
+      });
+      if (!matched) {
+        els.carwashList.innerHTML = `<li class="carwash-empty">"${escapeHtml(keyword)}" 주소를 찾지 못했어요. 동/구 단위로 입력해 보세요 🗺️</li>`;
+        return;
+      }
+      items.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+      renderCarWashes(items, { mode: 'search-address', keyword, matched });
+    } else {
+      // 이름 모드: 현재 위치 기준 키워드 검색
+      const items = await searchByKeyword({
+        query: keyword + ' 세차장',
+        lat: state.location.lat,
+        lon: state.location.lon,
+        radius: CARWASH_RADIUS,
+        sort: 'distance',
+        size: 15,
+      });
+      items.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+      renderCarWashes(items, { mode: 'search-name', keyword });
+    }
   } catch (e) {
     console.warn('[carwash search] 실패', e);
     els.carwashList.innerHTML = `<li class="carwash-empty">검색 실패: ${escapeHtml(e.message || '오류')}</li>`;
@@ -643,13 +780,14 @@ async function searchCarWashesByKeyword(keyword) {
 }
 
 function renderCarWashes(items, opts = {}) {
-  const { mode = 'nearby', keyword = '' } = opts;
-  // 거리순으로 정렬 (이미 정렬돼 있더라도 안전하게 한 번 더)
+  const { mode = 'nearby', keyword = '', matched = null } = opts;
   const sorted = [...(items || [])].sort((a, b) => (a.distance || 0) - (b.distance || 0));
 
   if (!sorted.length) {
-    if (mode === 'search') {
-      els.carwashList.innerHTML = `<li class="carwash-empty">"${escapeHtml(keyword)}" 결과가 없어요. 다른 검색어를 시도해 보세요 🔎</li>`;
+    if (mode === 'search-address') {
+      els.carwashList.innerHTML = `<li class="carwash-empty">📍 "${escapeHtml(keyword)}" 주변에 세차장이 없어요 🥺</li>`;
+    } else if (mode === 'search-name') {
+      els.carwashList.innerHTML = `<li class="carwash-empty">🏪 "${escapeHtml(keyword)}" 이름의 세차장이 없어요. 다른 이름을 시도해 보세요 🔎</li>`;
     } else {
       els.carwashList.innerHTML = `<li class="carwash-empty">반경 ${CARWASH_RADIUS/1000}km 안에 세차장이 없어요 🥺</li>`;
     }
@@ -657,9 +795,11 @@ function renderCarWashes(items, opts = {}) {
     return;
   }
 
-  // 카운트 라벨
-  if (mode === 'search') {
-    els.carwashCount.textContent = `검색 "${keyword}" · ${sorted.length}곳`;
+  if (mode === 'search-address') {
+    const where = matched ? (matched.region2 || matched.name) : keyword;
+    els.carwashCount.textContent = `📍 ${where} 주변 · ${sorted.length}곳`;
+  } else if (mode === 'search-name') {
+    els.carwashCount.textContent = `🏪 "${keyword}" · ${sorted.length}곳`;
   } else {
     els.carwashCount.textContent = `반경 ${CARWASH_RADIUS/1000}km · ${sorted.length}곳`;
   }
@@ -694,8 +834,35 @@ function renderCarWashes(items, opts = {}) {
 }
 
 // 검색 입력 바인딩 — 실시간 자동완성 (입력 즉시 검색)
+function setCarwashSearchMode(mode) {
+  state.carwashSearchMode = mode;
+  if (mode === 'address') {
+    els.carwashTabAddress?.classList.add('is-active');
+    els.carwashTabAddress?.setAttribute('aria-selected', 'true');
+    els.carwashTabName?.classList.remove('is-active');
+    els.carwashTabName?.setAttribute('aria-selected', 'false');
+    if (els.carwashSearchIcon) els.carwashSearchIcon.textContent = '📍';
+    if (els.carwashSearch) els.carwashSearch.placeholder = '지역/동 입력 (예: 강남구, 해운대동)';
+    if (els.carwashSearchHint) els.carwashSearchHint.innerHTML = '💡 그 동네의 세차장 목록을 거리순으로 보여드려요';
+  } else {
+    els.carwashTabName?.classList.add('is-active');
+    els.carwashTabName?.setAttribute('aria-selected', 'true');
+    els.carwashTabAddress?.classList.remove('is-active');
+    els.carwashTabAddress?.setAttribute('aria-selected', 'false');
+    if (els.carwashSearchIcon) els.carwashSearchIcon.textContent = '🏪';
+    if (els.carwashSearch) els.carwashSearch.placeholder = '세차장 상호명 입력 (예: 셀프세차, 이가워시)';
+    if (els.carwashSearchHint) els.carwashSearchHint.innerHTML = '💡 현재 위치 기준으로 가까운 곳부터 보여드려요';
+  }
+  // 검색어 있으면 즉시 재검색
+  const q = els.carwashSearch?.value.trim();
+  if (q) searchCarWashesByKeyword(q);
+}
+
 function bindCarwashSearch() {
   if (!els.carwashSearch || els.carwashSearch.dataset.bound) return;
+  // 탭 클릭 이벤트
+  els.carwashTabAddress?.addEventListener('click', () => setCarwashSearchMode('address'));
+  els.carwashTabName?.addEventListener('click', () => setCarwashSearchMode('name'));
   let timer = null;
   let lastQuery = '';
   els.carwashSearch.addEventListener('input', (ev) => {

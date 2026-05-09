@@ -10,6 +10,7 @@ import { httpJson } from './_base.js';
 import { KEYS } from '../config.js';
 
 const ENDPOINT_KEYWORD = 'https://dapi.kakao.com/v2/local/search/keyword.json';
+const ENDPOINT_ADDRESS = 'https://dapi.kakao.com/v2/local/search/address.json';
 
 /**
  * 키워드로 장소 검색
@@ -84,6 +85,47 @@ export async function searchCarWashes({ lat, lon, radius = 3000 }) {
   // 거리순 정렬
   all.sort((a, b) => (a.distance || 0) - (b.distance || 0));
   return all.slice(0, 20);
+}
+
+/**
+ * 주소 → 좌표 변환 (카카오 주소 API)
+ * "강남구", "해운대동", "서울 종로구" 등 입력 → 그 좌표 반환
+ * @param {string} query - 주소 키워드
+ */
+export async function searchByAddress(query) {
+  const key = KEYS.kakao;
+  if (!key) throw new Error('카카오 REST API 키가 설정되지 않았습니다');
+  const params = new URLSearchParams({ query: String(query), size: '10' });
+  const data = await httpJson(`${ENDPOINT_ADDRESS}?${params}`, {
+    headers: { 'Authorization': `KakaoAK ${key}` },
+  });
+  const docs = Array.isArray(data?.documents) ? data.documents : [];
+  return docs.map(d => {
+    const addr = d.address || d.road_address || {};
+    const name = d.address_name || addr.address_name || '';
+    return {
+      name,
+      lat: Number(d.y),
+      lon: Number(d.x),
+      region1: addr.region_1depth_name || '',
+      region2: addr.region_2depth_name || '',
+      region3: addr.region_3depth_name || '',
+    };
+  });
+}
+
+/**
+ * 주소 키워드 → 그 위치 주변 세차장 검색
+ * 1) 주소를 좌표로 변환 → 2) 그 좌표 주변 세차장 키워드 검색
+ */
+export async function searchCarWashesByAddress({ query, radius = 3000 }) {
+  const addresses = await searchByAddress(query);
+  if (!addresses.length) {
+    return { matched: null, items: [] };
+  }
+  const a = addresses[0];
+  const items = await searchCarWashes({ lat: a.lat, lon: a.lon, radius });
+  return { matched: a, items };
 }
 
 /**
