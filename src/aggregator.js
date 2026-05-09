@@ -22,7 +22,6 @@ const AIR_DEFS = [
 
 export async function aggregate({ lat, lon, enabledSources = ENABLED_DEFAULT, keys = KEYS, days = 16, extendDays = 30 }) {
   const ko = isKorea(lat, lon);
-  // 정확 예보는 forecastDays까지 (16일), 그 이후는 climatology
   const forecastDays = Math.min(days, 16);
 
   const wDefs = WEATHER_DEFS.filter(d =>
@@ -36,27 +35,11 @@ export async function aggregate({ lat, lon, enabledSources = ENABLED_DEFAULT, ke
     (!d.koOnly || ko)
   );
 
-  // climatology range: 16일 다음날부터 extendDays까지
-  const today = new Date();
-  const climStart = new Date(today); climStart.setDate(today.getDate() + forecastDays);
-  const climEnd   = new Date(today); climEnd.setDate(today.getDate() + Math.max(forecastDays, extendDays) - 1);
-  const useClimatology = extendDays > forecastDays;
-
-  const tasks = [
+  // forecast / air 먼저 (빠름) — climatology는 별도 promise로 분리해서 백그라운드 처리
+  const [wRes, aRes] = await Promise.all([
     Promise.allSettled(wDefs.map(d => d.fn({ lat, lon, days: forecastDays, key: keys[d.id] }))),
     Promise.allSettled(aDefs.map(d => d.fn({ lat, lon, days: Math.min(forecastDays, 7), key: keys[d.id] }))),
-  ];
-  if (useClimatology) {
-    tasks.push(fetchClimatology({
-      lat, lon,
-      fromDate: isoLocal(climStart),
-      toDate:   isoLocal(climEnd),
-    }).catch(e => {
-      console.warn('[climatology] failed', e);
-      return { days: [] };
-    }));
-  }
-  const [wRes, aRes, climRes] = await Promise.all(tasks);
+  ]);
 
   const weatherSets = pickFulfilled(wRes, wDefs);
   const airSets     = pickFulfilled(aRes, aDefs);
@@ -66,25 +49,29 @@ export async function aggregate({ lat, lon, enabledSources = ENABLED_DEFAULT, ke
     throw new Error('모든 날씨 소스 실패: ' + errs.join(' | '));
   }
 
-  // 정확 예보 기간 합의
   const merged = mergeWeatherDays(weatherSets);
 
-  // climatology 추가 (각 날에 confidence: 'low')
-  if (useClimatology && climRes?.days?.length) {
-    for (const d of climRes.days) {
-      merged.push({
-        ...d,
-        sources: ['open-meteo-climate'],
-        confidence: 'low',
-      });
-    }
+  // climatology promise — caller가 await하면 받고, 아니면 백그라운드로 무시 가능
+  let climatePromise = null;
+  if (extendDays > forecastDays) {
+    const today = new Date();
+    const climStart = new Date(today); climStart.setDate(today.getDate() + forecastDays);
+    const climEnd   = new Date(today); climEnd.setDate(today.getDate() + extendDays - 1);
+    climatePromise = fetchClimatology({
+      lat, lon,
+      fromDate: isoLocal(climStart),
+      toDate:   isoLocal(climEnd),
+    }).catch(e => {
+      console.warn('[climatology] failed', e);
+      return { days: [] };
+    });
   }
 
   return {
     weather: merged,
     air:     mergeAirDays(airSets),
     sources: {
-      weather: weatherSets.map(s => s.id).concat(useClimatology && climRes?.days?.length ? ['climate-30y'] : []),
+      weather: weatherSets.map(s => s.id),
       air:     airSets.map(s => s.id),
     },
     coverage: {
@@ -93,7 +80,7 @@ export async function aggregate({ lat, lon, enabledSources = ENABLED_DEFAULT, ke
     },
     isKorea: ko,
     forecastDays,
-    hasClimatology: useClimatology && Boolean(climRes?.days?.length),
+    climatePromise, // <- 비동기로 늦게 도착
   };
 }
 

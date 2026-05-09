@@ -6,7 +6,7 @@ import { httpJson, toIsoDate } from './_base.js';
 
 const ARCHIVE = 'https://archive-api.open-meteo.com/v1/archive';
 
-export async function fetchClimatology({ lat, lon, fromDate, toDate, sampleYears = 5 }) {
+export async function fetchClimatology({ lat, lon, fromDate, toDate, sampleYears = 3 }) {
   // 같은 월/일 기준으로 최근 sampleYears 년의 평균을 산출
   const out = [];
   const dates = [];

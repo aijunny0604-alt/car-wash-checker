@@ -49,18 +49,51 @@ export function mergeWeatherDays(sets) {
   return dates.map(date => {
     const rows = byDate[date];
     const weights = rows.map(r => r._weight);
-    // 시간별 데이터는 첫 가용 소스(보통 Open-Meteo)에서 가져옴
     const hourly = rows.find(r => r.hourly)?.hourly || null;
+
+    // ────────── 강수확률/강수량 보정 로직 ──────────
+    const probs   = rows.map(r => r.precipitationProbability);
+    const amounts = rows.map(r => r.precipitationAmountMm);
+    const validProbs = probs.filter(Number.isFinite);
+    const validAmts  = amounts.filter(Number.isFinite);
+
+    // 1) 소스 간 차이가 크면 (≥40%p) 더 낮은(낙관) 값을 채택 — 한쪽만 비관적인 케이스 보정
+    //    예: Open-Meteo 90%, MET Norway 5% → 47.5% 평균 대신 더 신뢰 가능한 값 쪽
+    let probMerged;
+    if (validProbs.length >= 2) {
+      const minP = Math.min(...validProbs);
+      const maxP = Math.max(...validProbs);
+      if (maxP - minP >= 40) {
+        // 큰 차이 → 가중 평균 + 더 낮은 쪽 가중치 보강
+        probMerged = (minP * 0.65 + maxP * 0.35);
+      } else {
+        probMerged = weightedConsensus(probs, weights);
+      }
+    } else {
+      probMerged = weightedConsensus(probs, weights);
+    }
+
+    // 2) 강수량이 0.5mm 미만이면 "이슬비/매우 약한 비"로 간주 — 강수확률 cap 30%
+    //    예: 강수량 0.4mm + 확률 90% → 실제로는 거의 안 옴 → 30%로 cap
+    const meanAmt = validAmts.length ? validAmts.reduce((a, b) => a + b, 0) / validAmts.length : 0;
+    if (probMerged != null && meanAmt > 0 && meanAmt < 0.5) {
+      probMerged = Math.min(probMerged, 30);
+    }
+    // 3) 강수량 0이면 강수확률 20% cap (한 번 더 안전장치)
+    if (probMerged != null && meanAmt === 0 && validAmts.length >= 2) {
+      probMerged = Math.min(probMerged, 20);
+    }
+
     return {
       date,
       sources: rows.map(r => r.source),
-      precipitationProbability: roundOrNull(weightedConsensus(rows.map(r => r.precipitationProbability), weights)),
-      precipitationProbabilityMax: roundOrNull(maxOf(rows.map(r => r.precipitationProbability))),
-      precipitationAmountMm: avg2(weightedConsensus(rows.map(r => r.precipitationAmountMm), weights)),
-      precipitationAmountMmMax: avg2(maxOf(rows.map(r => r.precipitationAmountMm))),
-      tempMin: avg1(weightedConsensus(rows.map(r => r.tempMin), weights)),
-      tempMax: avg1(weightedConsensus(rows.map(r => r.tempMax), weights)),
-      humidityAvg: roundOrNull(weightedConsensus(rows.map(r => r.humidityAvg), weights)),
+      precipitationProbability:    roundOrNull(probMerged),
+      precipitationProbabilityMax: roundOrNull(maxOf(probs)),
+      precipitationAmountMm:       avg2(weightedConsensus(amounts, weights)),
+      precipitationAmountMmMax:    avg2(maxOf(amounts)),
+      tempMin:      avg1(weightedConsensus(rows.map(r => r.tempMin), weights)),
+      tempMax:      avg1(weightedConsensus(rows.map(r => r.tempMax), weights)),
+      humidityAvg:  roundOrNull(weightedConsensus(rows.map(r => r.humidityAvg), weights)),
       windSpeedMax: avg1(weightedConsensus(rows.map(r => r.windSpeedMax), weights)),
       windSpeedMaxOf: avg1(maxOf(rows.map(r => r.windSpeedMax))),
       hourly,

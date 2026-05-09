@@ -10,24 +10,54 @@ export function scoreDay(weather, air, opts = {}) {
   let score = 100;
   const reasons = [];
 
-  const pp = numOr(weather?.precipitationProbability, 0);
-  if (pp >= 70) {
-    score -= 40;
-    reasons.push(`강수확률 ${Math.round(pp)}%`);
+  // ────── 강수 (확률 + 강수량 조합) ──────
+  const pp  = numOr(weather?.precipitationProbability, 0);
+  const amt = numOr(weather?.precipitationAmountMm, 0);
+
+  // 강수량 기반 1차 감점 (실제로 비가 얼마나 오는가)
+  let amtPenalty = 0;
+  let amtReason = null;
+  if (amt >= 10)      { amtPenalty = 45; amtReason = `강수량 ${amt.toFixed(1)}mm 호우`; }
+  else if (amt >= 5)  { amtPenalty = 35; amtReason = `강수량 ${amt.toFixed(1)}mm 강한 비`; }
+  else if (amt >= 1)  { amtPenalty = 25; amtReason = `강수량 ${amt.toFixed(1)}mm 비`; }
+  else if (amt >= 0.3){ amtPenalty = 8;  amtReason = '약한 비'; } // 이슬비 수준
+
+  // 강수확률 기반 2차 감점 — 단계 더 촘촘하게, 이슬비(amt<0.5) 보정
+  let probPenalty = 0;
+  let probReason = null;
+  const isDrizzleOrLess = amt < 0.5; // 이슬비 또는 그 이하
+  if (pp >= 80) {
+    probPenalty = isDrizzleOrLess ? 20 : 35;
+    probReason = `강수확률 ${Math.round(pp)}%`;
+  } else if (pp >= 60) {
+    probPenalty = isDrizzleOrLess ? 15 : 25;
+    probReason = `강수확률 ${Math.round(pp)}%`;
   } else if (pp >= 40) {
-    score -= 20;
-    reasons.push(`강수확률 ${Math.round(pp)}%`);
+    probPenalty = isDrizzleOrLess ? 8 : 15;
+    probReason = `강수확률 ${Math.round(pp)}%`;
   } else if (pp >= 20) {
-    score -= 10;
+    probPenalty = 5;
   }
 
-  const nextPp = numOr(opts.nextDayPp, 0);
-  if (nextPp >= 70) {
+  // 두 페널티 중 큰 쪽 채택 (중복 부과 방지)
+  if (amtPenalty >= probPenalty) {
+    score -= amtPenalty;
+    if (amtReason) reasons.push(amtReason);
+  } else {
+    score -= probPenalty;
+    if (probReason) reasons.push(probReason);
+  }
+
+  // ────── 다음날 비 (세차 후 더러워짐 방지) ──────
+  const nextPp  = numOr(opts.nextDayPp, 0);
+  const nextAmt = numOr(opts.nextDayAmt, 0);
+  // 다음날 실제 비가 1mm 이상 예측되거나 확률 70%↑면 감점
+  if (nextAmt >= 1 || nextPp >= 70) {
     score -= 20;
     reasons.push(`내일 비 ${Math.round(nextPp)}%`);
-  } else if (nextPp >= 50) {
+  } else if (nextPp >= 50 && nextAmt >= 0.3) {
     score -= 10;
-    reasons.push(`내일 강수 가능 ${Math.round(nextPp)}%`);
+    reasons.push(`내일 약한 비`);
   }
 
   // 대기질

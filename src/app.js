@@ -2,9 +2,10 @@
 
 import { aggregate } from './aggregator.js';
 import { scoreDay } from './scoring.js';
+import { searchPlaces } from './adapters/geocoding.js';
 import {
   renderMainCard, renderForecast, renderSources, renderError, renderLoading, setLocationLabel,
-  renderHourlyChart,
+  renderHourlyChart, renderAirSection,
 } from './render.js';
 import { requestGps, loadCities, getStoredLocation, saveLocation } from './location.js';
 import { CACHE_TTL_MS, ENABLED_DEFAULT } from './config.js';
@@ -27,10 +28,24 @@ const els = {
   bestDayBtn: $('#bestDayBtn'),
   hourlySection: $('#hourlySection'),
   sparkline:     $('#sparkline'),
+  airSection:        $('#airSection'),
+  airOverallBadge:   $('#airOverallBadge'),
+  airPm10:           $('#airPm10'),
+  airPm25:           $('#airPm25'),
+  airExtra:          $('#airExtra'),
   rangeLabel:    $('#rangeLabel'),
   rangeBtns:     document.querySelectorAll('.range-btn'),
   climateNote:   $('#climateNote'),
   indicator:     $('#selectIndicator'),
+  // 검색 UI
+  placeSearch:        $('#placeSearch'),
+  searchHint:         $('#searchHint'),
+  searchResults:      $('#searchResults'),
+  searchResultsBlock: $('#searchResultsBlock'),
+  recentList:         $('#recentList'),
+  recentBlock:        $('#recentBlock'),
+  favoritesList:      $('#favoritesList'),
+  favoritesBlock:     $('#favoritesBlock'),
 };
 
 const state = {
@@ -111,39 +126,197 @@ async function initLocation() {
 }
 
 async function openCityPicker() {
+  // 1) 주요 도시 (presets) — 한 번만 로드
   if (!els.cityList.dataset.loaded) {
     try {
       const cities = await loadCities();
       els.cityList.innerHTML = cities.map(c => `
-        <li><button type="button" data-id="${c.id}" data-lat="${c.lat}" data-lon="${c.lon}" data-name="${c.name}">${c.name}</button></li>
+        <li><button type="button"
+            data-lat="${c.lat}" data-lon="${c.lon}" data-name="${c.name}">
+          <span class="place-name">${escapeHtml(c.name)}</span>
+        </button></li>
       `).join('');
       els.cityList.dataset.loaded = '1';
       els.cityList.addEventListener('click', (ev) => {
-        const btn = ev.target.closest('button[data-id]');
+        const btn = ev.target.closest('button[data-lat]');
         if (!btn) return;
-        const loc = {
+        pickPlace({
           lat: Number(btn.dataset.lat),
           lon: Number(btn.dataset.lon),
           label: btn.dataset.name,
-          source: 'manual',
-        };
-        state.location = loc;
-        saveLocation(loc);
-        setLocationLabel(els.location, loc.label);
-        els.cityPicker.close();
-        loadAndRender();
+        });
       });
     } catch (e) {
       els.cityList.innerHTML = `<li class="muted">도시 목록 로드 실패</li>`;
     }
   }
+
+  // 2) 검색 입력 - debounce 한 번만 바인딩
+  if (!els.placeSearch.dataset.bound) {
+    let searchTimer = null;
+    els.placeSearch.addEventListener('input', (ev) => {
+      const q = ev.target.value.trim();
+      if (searchTimer) clearTimeout(searchTimer);
+      if (q.length < 2) {
+        els.searchResultsBlock.hidden = true;
+        els.searchHint.textContent = '2글자 이상 입력하세요';
+        return;
+      }
+      els.searchHint.textContent = '';
+      els.searchResultsBlock.hidden = false;
+      els.searchResults.innerHTML = `<li class="search-loading">검색 중…</li>`;
+      searchTimer = setTimeout(async () => {
+        try {
+          const results = await searchPlaces(q, { limit: 10 });
+          if (results.length === 0) {
+            els.searchResults.innerHTML = `<li class="search-empty">결과 없음 — 다른 검색어를 시도해 보세요</li>`;
+          } else {
+            els.searchResults.innerHTML = results.map(r => placeItemHtml(r)).join('');
+          }
+        } catch (err) {
+          els.searchResults.innerHTML = `<li class="search-empty">검색 실패: ${escapeHtml(err.message || '오류')}</li>`;
+        }
+      }, 320);
+    });
+    // 검색 결과/즐겨찾기/최근 클릭 위임
+    els.searchResults.addEventListener('click', onPlaceListClick);
+    els.recentList.addEventListener('click', onPlaceListClick);
+    els.favoritesList.addEventListener('click', onPlaceListClick);
+    els.placeSearch.dataset.bound = '1';
+  }
+
+  // 3) 즐겨찾기/최근 다시 그리기
+  renderFavorites();
+  renderRecents();
+  // 검색 입력 초기화
+  els.placeSearch.value = '';
+  els.searchResultsBlock.hidden = true;
+  els.searchHint.textContent = '2글자 이상 입력하세요';
+
   els.cityPicker.showModal();
+  // 모달 떴을 때 입력창에 자동 포커스
+  setTimeout(() => els.placeSearch.focus(), 50);
+}
+
+function onPlaceListClick(ev) {
+  const btn = ev.target.closest('button[data-lat]');
+  if (!btn) return;
+  // 즐겨찾기 별 버튼이면 토글
+  if (ev.target.closest('.place-fav-btn')) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    toggleFavorite({
+      lat:   Number(btn.dataset.lat),
+      lon:   Number(btn.dataset.lon),
+      label: btn.dataset.name,
+      region: btn.dataset.region || '',
+    });
+    return;
+  }
+  pickPlace({
+    lat:   Number(btn.dataset.lat),
+    lon:   Number(btn.dataset.lon),
+    label: btn.dataset.name,
+    region: btn.dataset.region || '',
+  });
+}
+
+function pickPlace(loc) {
+  state.location = { ...loc, source: 'manual' };
+  saveLocation(state.location);
+  setLocationLabel(els.location, loc.region ? `${loc.label} · ${loc.region}` : loc.label);
+  addRecent(loc);
+  els.cityPicker.close();
+  loadAndRender();
+}
+
+function placeItemHtml(r) {
+  const fav = isFavorite(r) ? 'is-fav' : '';
+  const star = isFavorite(r) ? '⭐' : '☆';
+  return `
+    <li>
+      <button type="button"
+          data-lat="${r.lat}" data-lon="${r.lon}"
+          data-name="${escapeAttr(r.name)}" data-region="${escapeAttr(r.region)}">
+        <span>
+          <span class="place-name">${escapeHtml(r.name)}</span>
+          <span class="place-region">${escapeHtml(r.region || '')}</span>
+        </span>
+        <span class="place-fav-btn ${fav}" title="즐겨찾기">${star}</span>
+      </button>
+    </li>
+  `;
+}
+
+// ───── 즐겨찾기 ─────
+function loadFavorites() {
+  try { return JSON.parse(localStorage.getItem('cwc.favorites') || '[]'); } catch { return []; }
+}
+function saveFavorites(list) {
+  try { localStorage.setItem('cwc.favorites', JSON.stringify(list.slice(0, 10))); } catch {}
+}
+function favKey(loc) {
+  return `${loc.lat.toFixed(3)},${loc.lon.toFixed(3)}`;
+}
+function isFavorite(loc) {
+  return loadFavorites().some(f => favKey(f) === favKey(loc));
+}
+function toggleFavorite(loc) {
+  const list = loadFavorites();
+  const k = favKey(loc);
+  const idx = list.findIndex(f => favKey(f) === k);
+  if (idx >= 0) list.splice(idx, 1);
+  else list.unshift(loc);
+  saveFavorites(list);
+  renderFavorites();
+}
+function renderFavorites() {
+  const favs = loadFavorites();
+  els.favoritesBlock.hidden = favs.length === 0;
+  if (!favs.length) return;
+  els.favoritesList.innerHTML = favs.map(f => placeItemHtml({ ...f, region: f.region || '' })).join('');
+}
+
+// ───── 최근 검색 ─────
+function loadRecents() {
+  try { return JSON.parse(localStorage.getItem('cwc.recents') || '[]'); } catch { return []; }
+}
+function saveRecents(list) {
+  try { localStorage.setItem('cwc.recents', JSON.stringify(list.slice(0, 8))); } catch {}
+}
+function addRecent(loc) {
+  const list = loadRecents();
+  const k = favKey(loc);
+  const filtered = list.filter(r => favKey(r) !== k);
+  filtered.unshift(loc);
+  saveRecents(filtered);
+}
+function renderRecents() {
+  const list = loadRecents();
+  els.recentBlock.hidden = list.length === 0;
+  if (!list.length) return;
+  els.recentList.innerHTML = list.map(r => placeItemHtml({ ...r, region: r.region || '' })).join('');
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;',
+  }[c]));
+}
+function escapeAttr(s) {
+  return escapeHtml(s);
 }
 
 async function loadAndRender() {
   if (!state.location) return;
+  // 매 호출마다 토큰 발급 — 도시 변경 race 방지 (stale climatePromise 무시용)
+  const token = (state.loadToken = (state.loadToken || 0) + 1);
   renderLoading(els.todayCard);
   els.forecast.innerHTML = '';
+  els.forecast.dataset.dataKey = '';
+  els.forecast.dataset.dateKey = '';
+  if (els.indicator) els.indicator.classList.remove('is-visible');
+  state.selectedDate = null;
 
   const cached = readCache(state.location);
   let agg = cached;
@@ -154,20 +327,24 @@ async function loadAndRender() {
         lon: state.location.lon,
         enabledSources: state.enabledSources,
         days: 16,
-        extendDays: 30, // 항상 30일 climatology 동시 fetch (캐시되니 가벼움)
+        extendDays: 30,
       });
-      writeCache(state.location, agg);
+      // forecast만 캐시 (climatePromise는 직렬화 불가, 도착 후 별도 캐시)
+      writeCache(state.location, { ...agg, climatePromise: undefined });
     } catch (e) {
       renderError(els.todayCard, e.message || '데이터를 가져올 수 없습니다.', () => loadAndRender());
       return;
     }
   }
 
-  // 일별 verdict 계산
-  const daily = agg.weather.map((w, i) => {
+  // 일별 verdict 계산 — forecast 부분만 우선 렌더
+  const buildDaily = (weatherList) => weatherList.map((w, i) => {
     const air = agg.air.find(a => a.date === w.date) || null;
-    const nextW = agg.weather[i + 1];
-    const verdict = scoreDay(w, air, { nextDayPp: nextW?.precipitationProbability });
+    const nextW = weatherList[i + 1];
+    const verdict = scoreDay(w, air, {
+      nextDayPp:  nextW?.precipitationProbability,
+      nextDayAmt: nextW?.precipitationAmountMm,
+    });
     return {
       date: w.date,
       verdict,
@@ -176,17 +353,44 @@ async function loadAndRender() {
       confidence: w.confidence || (i < (agg.forecastDays || 16) ? 'high' : 'low'),
     };
   });
+  const daily = buildDaily(agg.weather);
 
   if (daily.length === 0) {
     renderError(els.todayCard, '예보 데이터가 비어 있습니다.', () => loadAndRender());
     return;
   }
 
-  state.allDaily = daily; // 전체 보존
+  state.allDaily = daily; // 우선 forecast만
   state.coverage = agg.coverage;
   state.sources  = agg.sources;
   applyRange();
   renderSources(els.sourcesLine, agg.sources);
+
+  // climatology 백그라운드 도착 시 추가 카드 채우기 (토큰 검증으로 stale 방지)
+  if (agg.climatePromise) {
+    agg.climatePromise.then(climRes => {
+      // 도시가 바뀌었으면 옛 도시의 climate 데이터 무시
+      if (token !== state.loadToken) return;
+      if (!climRes?.days?.length) return;
+      const climWeather = climRes.days.map(d => ({ ...d, sources: ['open-meteo-climate'], confidence: 'low' }));
+      const merged = [...agg.weather, ...climWeather];
+      // 중복 날짜 제거 (forecast가 이미 있는 날짜는 스킵)
+      const seen = new Set(agg.weather.map(w => w.date));
+      const finalWeather = [...agg.weather, ...climWeather.filter(w => !seen.has(w.date))];
+      // 새 daily 빌드 + 캐시에도 저장 (extended)
+      const updatedAgg = { ...agg, weather: finalWeather };
+      const updatedDaily = updatedAgg.weather.map((w, i) => {
+        const air = updatedAgg.air.find(a => a.date === w.date) || null;
+        const nextW = updatedAgg.weather[i + 1];
+        const verdict = scoreDay(w, air, { nextDayPp: nextW?.precipitationProbability });
+        return { date: w.date, verdict, weather: w, air, confidence: w.confidence || 'high' };
+      });
+      state.allDaily = updatedDaily;
+      writeCache(state.location, { ...updatedAgg, climatePromise: undefined });
+      // 현재 30일 보기 중이면 즉시 재렌더
+      if (state.rangeDays >= 17) applyRange();
+    });
+  }
 }
 
 function applyRange() {
@@ -227,6 +431,12 @@ function selectDate(date) {
     onSelect: (d) => selectDate(d),
   });
   renderHourlyChart(els.sparkline, els.hourlySection, found.weather?.hourly);
+  renderAirSection(els.airSection, {
+    badge:    els.airOverallBadge,
+    pm10Card: els.airPm10,
+    pm25Card: els.airPm25,
+    extra:    els.airExtra,
+  }, found.air);
   // 선택 인디케이터 위치 갱신 — 더블 RAF로 layout 안정 후 측정
   requestAnimationFrame(() => requestAnimationFrame(() => moveSelectIndicator()));
 }
@@ -290,11 +500,15 @@ function renderSourceToggles() {
       </label>
     </li>
   `).join('');
-  els.sourceToggles.addEventListener('change', (ev) => {
-    const cb = ev.target.closest('input[type="checkbox"]');
-    if (!cb) return;
-    state.enabledSources[cb.dataset.id] = cb.checked;
-  }, { once: true });
+  // 한 번만 등록 (모달 여러 번 열어도 누적 X). once 제거 → 여러 토글 가능
+  if (!els.sourceToggles.dataset.bound) {
+    els.sourceToggles.addEventListener('change', (ev) => {
+      const cb = ev.target.closest('input[type="checkbox"]');
+      if (!cb) return;
+      state.enabledSources[cb.dataset.id] = cb.checked;
+    });
+    els.sourceToggles.dataset.bound = '1';
+  }
 }
 
 function cacheKey(loc) {
