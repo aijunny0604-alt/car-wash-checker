@@ -24,7 +24,7 @@
   }
 }
 
-* { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
 
 html, body {
   margin: 0; padding: 0;
@@ -34,7 +34,11 @@ html, body {
     "Noto Sans KR", Roboto, sans-serif;
   font-size: 16px;
   line-height: 1.5;
+  /* 모바일에서 가로 스크롤 차단 (자식 요소가 viewport 넘어가면 무조건 잘림) */
+  overflow-x: hidden;
+  width: 100%;
 }
+img, svg, video, canvas { max-width: 100%; }
 
 main.layout {
   max-width: 1180px;
@@ -1484,4 +1488,152 @@ dialog::backdrop { background: rgba(0,0,0,0.4); }
 
 button:focus-visible, [role="button"]:focus-visible {
   outline: 2px solid var(--primary); outline-offset: 2px;
+}
+
+/* ════════════════════════════════════════════════════
+   📱 모바일 전용 보정 (≤ 480px) — 화면 밖 넘침 방지
+   ════════════════════════════════════════════════════ */
+@media (max-width: 480px) {
+  :root {
+    --gap: 12px;
+    --radius: 12px;
+  }
+
+  /* 헤더/메인 패딩 줄이기 */
+  .app-header { padding: 10px 12px; }
+  .app-header h1 { font-size: 1.0rem; }
+  main.layout { padding: 0 10px 16px; gap: 10px; }
+
+  /* 위치/날짜 바 콤팩트 */
+  .top-bar { gap: 8px; margin-top: 10px; }
+  .location-bar { padding: 8px 12px; font-size: 0.92rem; }
+  .date-picker-bar { padding: 8px 12px; gap: 6px; }
+  .date-picker-bar label { font-size: 0.85rem; }
+  .date-picker-bar input[type="date"] {
+    font-size: 0.85rem; padding: 5px 8px; min-width: 110px;
+  }
+  .date-picker-bar .link-btn { font-size: 0.85rem; padding: 4px 6px; }
+
+  /* 메인 카드 콤팩트 */
+  .today-card {
+    padding: 16px 14px 14px;
+    min-height: 0;
+    gap: 6px;
+  }
+  .today-card .grade-text { font-size: 1.4rem; }
+  .today-card .date-tag { font-size: 0.85rem; }
+  .today-card .reasons { gap: 4px; }
+  .today-card .reasons span { font-size: 0.78rem; padding: 3px 8px; }
+  .today-card .coverage { font-size: 0.7rem; }
+
+  .weather-stage {
+    width: 180px;
+    height: 140px;
+    margin: 0 auto;
+  }
+  .score-gauge { width: 110px; height: 110px; }
+  .score-gauge .gauge-num { font-size: 1.7rem; }
+  .score-gauge .gauge-label { font-size: 0.66rem; }
+
+  /* 메트릭 카드: 4열 → 2열 (좁은 화면에서 글자 안 깨지게) */
+  .metric-row { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .metric { padding: 8px 6px; }
+  .metric .metric-vis { height: 36px; }
+  .metric .v { font-size: 0.92rem; }
+  .metric .lbl { font-size: 0.68rem; }
+
+  /* 추천 장비 칩 작게 */
+  .gear-row { gap: 4px; }
+  .gear-item { padding: 3px 8px 3px 5px; font-size: 0.72rem; }
+  .gear-item .gear-icon { font-size: 0.95rem; }
+
+  /* 시간별 그래프 — 컨테이너 패딩 줄이고 SVG는 자동 비율 */
+  .hourly-section { padding: 12px 6px 8px; }
+  .hourly-section h3 { font-size: 0.88rem; margin: 0 0 6px; }
+  .sparkline { height: 150px; }
+  /* SVG 내부 글자 모바일에선 살짝 키워서 가독성 */
+  .chart-axis-label { font-size: 14px; }
+  .chart-axis-unit { font-size: 12px; }
+  .chart-temp-label { font-size: 14px; }
+  .spark-label { font-size: 13px; }
+
+  .legend { font-size: 0.72rem; gap: 8px; }
+
+  /* 대기질 섹션 */
+  .air-section { padding: 12px 12px 10px; }
+  .air-head h3 { font-size: 0.88rem; }
+  .air-overall-badge { font-size: 0.72rem; padding: 3px 10px; }
+  .air-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
+  .air-card { padding: 10px 10px 8px; border-radius: 10px; }
+  .air-card-num { font-size: 1.4rem; }
+  .air-card-unit { font-size: 0.65rem; }
+  .air-card-code { font-size: 0.72rem; }
+  .air-card-name { font-size: 0.65rem; }
+  .air-bar-labels { font-size: 0.55rem; }
+  .air-card-grade { font-size: 0.78rem; }
+  .air-warning { font-size: 0.75rem; padding: 6px 10px; }
+
+  /* 7일 카드 - 모바일에서 약간 더 작게 */
+  .forecast-section { padding: 0; }
+  .forecast-strip { grid-auto-columns: 78px; gap: 6px; }
+  .forecast-day { padding: 8px 4px 6px; border-radius: 12px; }
+  .forecast-day .dow { font-size: 0.82rem; }
+  .forecast-day .md { font-size: 0.66rem; }
+  .forecast-day .mini-icon { width: 32px; height: 32px; }
+  .forecast-day .score-num { font-size: 0.95rem; }
+  .forecast-day .meta { font-size: 0.65rem; }
+  .range-toggle { gap: 2px; padding: 3px; }
+  .range-btn { padding: 4px 8px; font-size: 0.72rem; }
+
+  .forecast-head { flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .forecast-head h2 { font-size: 0.95rem; }
+
+  /* 세차장 섹션 */
+  .carwash-section { padding: 12px 12px 10px; }
+  .carwash-head h3 { font-size: 0.88rem; }
+  .carwash-list { max-height: 320px; }
+  .carwash-item { padding: 9px 10px; }
+  .carwash-item-name { font-size: 0.85rem; }
+  .carwash-item-distance { font-size: 0.72rem; }
+  .carwash-item-address { font-size: 0.72rem; }
+
+  /* 검색 모달 */
+  dialog.city-picker {
+    max-width: 100%;
+    width: calc(100% - 16px);
+    max-height: 92vh;
+    padding: 14px;
+  }
+  .place-search { padding: 10px 12px; font-size: 0.95rem; }
+  .city-list li button { padding: 8px 8px; }
+
+  /* 판단 기준 푸터 */
+  .criteria-info { padding: 10px 12px; }
+  .criteria-info summary { font-size: 0.85rem; }
+
+  /* 30일 모드: 모바일에선 강제 스크롤 (8/10열 그리드 대신) */
+  .forecast-strip[data-count="14"],
+  .forecast-strip[data-count="16"],
+  .forecast-strip[data-count="30"] {
+    grid-template-columns: unset;
+    grid-auto-flow: column;
+    grid-auto-columns: 78px;
+    overflow-x: auto;
+  }
+  .forecast-strip[data-count="14"] .climate-tag,
+  .forecast-strip[data-count="30"] .climate-tag { display: inline; }
+
+  /* 헤더 z-index 안전 */
+  .app-header { padding: 10px 12px; }
+}
+
+/* 아주 작은 폰 (≤ 360px) */
+@media (max-width: 360px) {
+  main.layout { padding: 0 8px 12px; }
+  .today-card { padding: 14px 10px 12px; }
+  .weather-stage { width: 150px; height: 120px; }
+  .score-gauge { width: 100px; height: 100px; }
+  .score-gauge .gauge-num { font-size: 1.5rem; }
+  .metric-row { gap: 4px; }
+  .forecast-strip { grid-auto-columns: 72px; }
 }
