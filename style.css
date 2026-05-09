@@ -1749,29 +1749,52 @@ button:focus-visible, [role="button"]:focus-visible {
   .today-card .climate-badge { font-size: 0.66rem; padding: 1px 6px; }
 
   /* 인포그래픽 가로 2분할 — 해 SVG 좌측 + 점수 게이지 우측 (PC 레이아웃과 통일감) */
-  .today-card { position: relative; }
+  .today-card { position: relative; overflow: hidden; }
   .weather-stage {
     width: 130px;
+    max-width: 50%;
     height: 100px;
-    margin: 0 0 0 8px;     /* 좌측 정렬 */
+    margin: 0 0 0 8px;
     align-self: flex-start;
   }
   .score-gauge {
     position: absolute;
-    right: 18px;
-    top: 38px;             /* date-tag + best-badge 아래쯤 */
-    width: 92px;
-    height: 92px;
+    right: 14px;
+    top: 38px;
+    width: 86px;
+    height: 86px;
+    max-width: 40%;
     margin: 0;
   }
-  .score-gauge .gauge-num { font-size: 1.4rem; }
-  .score-gauge .gauge-label { font-size: 0.58rem; }
+  .score-gauge .gauge-num { font-size: 1.35rem; }
+  .score-gauge .gauge-label { font-size: 0.55rem; }
   .score-gauge .gauge-bg, .score-gauge .gauge-fg { stroke-width: 9; }
-  /* weather-label은 stage 바로 아래, 가운데 */
   .today-card .weather-label {
     align-self: center;
     margin: 4px 0 0;
   }
+
+  /* ── 모바일 가로 스크롤 차단 (전역 안전망) ── */
+  html, body { max-width: 100vw; overflow-x: hidden; }
+  main.layout, .grid-2col, .col-main, .col-side,
+  .top-bar, .today-card, .hourly-section, .air-section,
+  .carwash-section, .forecast-section, .criteria-info,
+  .location-bar, .date-picker-bar {
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+  /* 자식 요소도 부모 폭 초과 안 함 */
+  .today-card *, .hourly-section *, .air-section *,
+  .carwash-section *, .forecast-section * {
+    max-width: 100%;
+  }
+  /* 예외: 가로 스크롤이 필요한 컴포넌트는 자체 처리 */
+  .forecast-strip[data-count="14"],
+  .forecast-strip[data-count="16"],
+  .forecast-strip[data-count="30"] { max-width: 100%; }
+  /* SVG는 부모 폭 맞춤 */
+  .sparkline { width: 100%; max-width: 100%; }
 
   /* 메트릭 — 4열 강제 (가로 한 줄로) */
   .metric-row {
