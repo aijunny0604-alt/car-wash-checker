@@ -1772,7 +1772,7 @@ button:focus-visible, [role="button"]:focus-visible {
     line-height: 1.2;
   }
   .score-gauge {
-    position: static;
+    position: relative;  /* gauge-text(absolute)의 기준점 — static이면 카드 전체에 펼쳐짐 */
     width: 92px;
     height: 92px;
     margin: 2px auto 0;
