@@ -150,17 +150,45 @@ async function openCityPicker() {
       els.cityList.dataset.loaded = '1';
       // 도시/구 클릭 위임 핸들러 (드릴다운 + 선택)
       els.cityList.addEventListener('click', (ev) => {
-        // 동 드릴다운
-        const dongBtn = ev.target.closest('button[data-drill-dong]');
-        if (dongBtn) {
+        // 주요 도시 카드: ▸ 클릭 시 드릴다운, 본문 클릭 시 선택
+        const presetBtn = ev.target.closest('button.city-preset-btn');
+        if (presetBtn) {
           ev.preventDefault();
-          renderDongList({
-            districtName: dongBtn.dataset.drillDong,
-            cityId: dongBtn.dataset.cityId,
-            cityName: dongBtn.dataset.cityName,
-            lat: Number(dongBtn.dataset.lat),
-            lon: Number(dongBtn.dataset.lon),
-          });
+          const clickedDrill = ev.target.closest('.city-drill-icon');
+          const drillTarget = presetBtn.dataset.drill;
+          if (clickedDrill && drillTarget) {
+            renderDistrictList(drillTarget);
+          } else {
+            pickPlace({
+              lat: Number(presetBtn.dataset.lat),
+              lon: Number(presetBtn.dataset.lon),
+              label: presetBtn.dataset.name,
+              region: presetBtn.dataset.region || '',
+            });
+          }
+          return;
+        }
+        // 구 카드: ▸ 클릭 시 동 드릴다운, 본문 클릭 시 선택
+        const districtBtn = ev.target.closest('button.district-card-btn');
+        if (districtBtn) {
+          ev.preventDefault();
+          const clickedDrill = ev.target.closest('.district-drill-icon');
+          if (clickedDrill && districtBtn.dataset.drillDong) {
+            renderDongList({
+              districtName: districtBtn.dataset.drillDong,
+              cityId: districtBtn.dataset.cityId,
+              cityName: districtBtn.dataset.cityName,
+              lat: Number(districtBtn.dataset.lat),
+              lon: Number(districtBtn.dataset.lon),
+            });
+          } else {
+            pickPlace({
+              lat: Number(districtBtn.dataset.lat),
+              lon: Number(districtBtn.dataset.lon),
+              label: districtBtn.dataset.name,
+              region: districtBtn.dataset.region || '',
+            });
+          }
           return;
         }
         const drillBtn = ev.target.closest('button[data-drill]');
@@ -275,17 +303,16 @@ function renderCityPresets() {
     const hasDistricts = districts[c.id] && districts[c.id].districts?.length > 0;
     if (hasDistricts) {
       return `
-        <li class="city-with-drill">
-          <button type="button"
-              data-lat="${c.lat}" data-lon="${c.lon}" data-name="${escapeAttr(c.name)}">
-            <span class="place-name">${escapeHtml(c.name)}</span>
-          </button>
-          <button type="button" class="city-drill-btn" data-drill="${c.id}" aria-label="${escapeAttr(c.name)} 하위 지역">▸</button>
-        </li>
+        <li><button type="button" class="city-preset-btn"
+            data-lat="${c.lat}" data-lon="${c.lon}" data-name="${escapeAttr(c.name)}"
+            data-drill="${c.id}">
+          <span class="place-name">${escapeHtml(c.name)}</span>
+          <span class="city-drill-icon" aria-hidden="true">▸</span>
+        </button></li>
       `;
     }
     return `
-      <li><button type="button"
+      <li><button type="button" class="city-preset-btn"
           data-lat="${c.lat}" data-lon="${c.lon}" data-name="${escapeAttr(c.name)}">
         <span class="place-name">${escapeHtml(c.name)}</span>
       </button></li>
@@ -314,21 +341,17 @@ function renderDistrictList(cityId) {
       </button>
     </li>
     ${data.districts.map(d => `
-      <li class="district-with-drill">
-        <button type="button"
-            data-lat="${d.lat}" data-lon="${d.lon}"
-            data-name="${escapeAttr(d.name)}"
-            data-region="${escapeAttr(data.name)}">
-          <span class="place-name">${escapeHtml(d.name)}</span>
-          <span class="place-region">${escapeHtml(data.name)}</span>
-        </button>
-        <button type="button" class="city-drill-btn"
-                data-drill-dong="${escapeAttr(d.name)}"
-                data-city-id="${escapeAttr(cityId)}"
-                data-city-name="${escapeAttr(data.name)}"
-                data-lat="${d.lat}" data-lon="${d.lon}"
-                aria-label="${escapeAttr(d.name)} 동 보기">▸ 동</button>
-      </li>
+      <li><button type="button" class="district-card-btn"
+          data-lat="${d.lat}" data-lon="${d.lon}"
+          data-name="${escapeAttr(d.name)}"
+          data-region="${escapeAttr(data.name)}"
+          data-drill-dong="${escapeAttr(d.name)}"
+          data-city-id="${escapeAttr(cityId)}"
+          data-city-name="${escapeAttr(data.name)}">
+        <span class="place-name">${escapeHtml(d.name)}</span>
+        <span class="place-region">${escapeHtml(data.name)}</span>
+        <span class="district-drill-icon" aria-hidden="true">▸</span>
+      </button></li>
     `).join('')}
   `;
 }
@@ -422,12 +445,12 @@ async function renderDongList(opts) {
         </button>
       </li>
       ${dongs.map(d => `
-        <li><button type="button"
+        <li><button type="button" class="dong-card-btn"
             data-lat="${d.lat}" data-lon="${d.lon}"
             data-name="${escapeAttr(d.name)}"
             data-region="${escapeAttr(cityName + ' ' + districtName)}">
           <span class="place-name">${escapeHtml(d.name)}</span>
-          <span class="place-region">${escapeHtml(cityName + ' ' + districtName)}</span>
+          <span class="place-region">${escapeHtml(districtName)}</span>
         </button></li>
       `).join('')}
     `;
