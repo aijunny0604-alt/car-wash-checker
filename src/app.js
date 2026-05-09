@@ -781,7 +781,7 @@ async function searchCarWashesByKeyword(keyword) {
         els.carwashList.innerHTML = `<li class="carwash-empty">"${escapeHtml(keyword)}" 주소를 찾지 못했어요. 동/구 단위로 입력해 보세요 🗺️</li>`;
         return;
       }
-      items.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+      items.sort((a, b) => (Number.isFinite(a.distance) ? a.distance : Infinity) - (Number.isFinite(b.distance) ? b.distance : Infinity));
       renderCarWashes(items, { mode: 'search-address', keyword, matched });
     } else {
       // 이름 모드: 다양한 키워드 변형으로 동시 검색 (세차장/세차/셀프세차/워시 + 원문)
@@ -802,7 +802,7 @@ async function searchCarWashesByKeyword(keyword) {
 
 function renderCarWashes(items, opts = {}) {
   const { mode = 'nearby', keyword = '', matched = null } = opts;
-  const sorted = [...(items || [])].sort((a, b) => (a.distance || 0) - (b.distance || 0));
+  const sorted = [...(items || [])].sort((a, b) => (Number.isFinite(a.distance) ? a.distance : Infinity) - (Number.isFinite(b.distance) ? b.distance : Infinity));
 
   if (!sorted.length) {
     if (mode === 'search-address') {
@@ -905,11 +905,11 @@ function bindCarwashSearch() {
     }
     // 같은 검색어 중복 호출 방지
     if (q.trim() === lastQuery) return;
-    // 짧은 debounce (150ms) — 타이핑 빠르게 해도 실시간 느낌
+    // debounce 300ms — 빠른 타이핑 시 카카오 quota 폭주 방지
     timer = setTimeout(() => {
       lastQuery = q.trim();
       searchCarWashesByKeyword(q);
-    }, 150);
+    }, 300);
   });
   els.carwashClearBtn.addEventListener('click', () => {
     els.carwashSearch.value = '';

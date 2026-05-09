@@ -12,6 +12,17 @@ import { KEYS } from '../config.js';
 const ENDPOINT_KEYWORD = 'https://dapi.kakao.com/v2/local/search/keyword.json';
 const ENDPOINT_ADDRESS = 'https://dapi.kakao.com/v2/local/search/address.json';
 
+// 카카오 raw 에러 → 사용자 친화 메시지로 변환
+function friendlyKakaoError(e) {
+  const msg = String(e?.message || e || '');
+  if (/HTTP 401/.test(msg)) return new Error('카카오 API 키가 유효하지 않습니다 (관리자 문의)');
+  if (/HTTP 403/.test(msg)) return new Error('카카오 API 권한 오류 — 도메인 등록 필요');
+  if (/HTTP 429/.test(msg)) return new Error('카카오 API 호출 제한 도달, 잠시 후 다시 시도해 주세요');
+  if (/HTTP 5\d\d/.test(msg)) return new Error('카카오 서버 일시 오류 — 잠시 후 다시 시도해 주세요');
+  if (/Failed to fetch|NetworkError|aborted/i.test(msg)) return new Error('네트워크 연결을 확인해 주세요');
+  return e instanceof Error ? e : new Error(msg);
+}
+
 /**
  * 키워드로 장소 검색
  * @param {Object} opts
@@ -37,11 +48,14 @@ export async function searchByKeyword({ query, lat, lon, radius = 3000, sort = '
     size: String(Math.max(1, Math.min(15, size))),
   });
 
-  const data = await httpJson(`${ENDPOINT_KEYWORD}?${params}`, {
-    headers: {
-      'Authorization': `KakaoAK ${key}`,
-    },
-  });
+  let data;
+  try {
+    data = await httpJson(`${ENDPOINT_KEYWORD}?${params}`, {
+      headers: { 'Authorization': `KakaoAK ${key}` },
+    });
+  } catch (e) {
+    throw friendlyKakaoError(e);
+  }
 
   const docs = Array.isArray(data?.documents) ? data.documents : [];
   return docs.map(d => ({
@@ -82,51 +96,68 @@ export async function searchCarWashes({ lat, lon, radius = 3000 }) {
       all.push(item);
     }
   }
-  // 거리순 정렬
-  all.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+  // 거리순 정렬 (NaN/undefined는 맨 뒤)
+  all.sort((a, b) =>
+    (Number.isFinite(a.distance) ? a.distance : Infinity) -
+    (Number.isFinite(b.distance) ? b.distance : Infinity)
+  );
   return all.slice(0, 20);
 }
 
 /**
- * 이름 검색 — 사용자 키워드를 다양한 변형으로 동시 호출 후 합집합
- * 예: "덕포" 입력 → ["덕포 세차장", "덕포 세차", "덕포 셀프세차", "덕포 워시", "덕포"] 5개로 검색
- *     → "덕포 워시존" 같은 "세차장" 단어 없는 상호도 잡힘
+ * 이름 검색 — 핵심 변형 1차 호출 후 결과 부족 시만 fallback
+ * 1차: "{k} 세차장" 단일 호출 → 보통 충분
+ * 2차 (결과 < 5건): "{k} 워시" + "{k}" (세차 키워드 없는 브랜드 캐치)
+ *
  * @param {Object} opts
- * @param {string} opts.keyword - 사용자 입력 키워드
- * @param {number} opts.lat - 중심 위도
- * @param {number} opts.lon - 중심 경도
+ * @param {string} opts.keyword
+ * @param {number} opts.lat
+ * @param {number} opts.lon
  * @param {number} [opts.radius=20000]
  */
+const isCarWashName = (item) =>
+  /세차|워시|디테일링|wash/i.test(`${item.name || ''} ${item.category || ''}`);
+
 export async function searchCarWashesByName({ keyword, lat, lon, radius = 20000 }) {
   const k = String(keyword || '').trim();
   if (!k) return [];
-  // 키워드 변형: 세차 관련 단어와 조합 + 원문 (브랜드명만 입력 케이스)
-  const variants = [
-    `${k} 세차장`,
-    `${k} 세차`,
-    `${k} 셀프세차`,
-    `${k} 워시`,
-    k, // 그대로도 시도 (브랜드 + 동네 합성어 잡기)
-  ];
-  const results = await Promise.allSettled(
-    variants.map(q => searchByKeyword({ query: q, lat, lon, radius, sort: 'distance', size: 15 }))
-  );
-  const all = [];
-  const seen = new Set();
-  for (const r of results) {
-    if (r.status !== 'fulfilled') continue;
-    for (const item of r.value) {
+
+  const collect = (items, all, seen) => {
+    for (const item of items) {
       if (seen.has(item.id)) continue;
-      // 원문 검색은 세차 관련 카테고리 / 이름 가진 항목만 포함 (학원, 카페 제외)
-      const looksLikeCarWash = /세차|워시|디테일링|wash/i.test(item.name + ' ' + item.category);
-      if (!looksLikeCarWash) continue;
-      // 반경 내 결과만 (카카오가 광역 보정해서 멀리 있는 동명 가게 보내는 케이스 차단)
+      if (!isCarWashName(item)) continue;
       if (Number.isFinite(item.distance) && item.distance > radius) continue;
       seen.add(item.id);
       all.push(item);
     }
+  };
+
+  const all = [];
+  const seen = new Set();
+
+  // 1차: 단일 키워드 (대부분 케이스 커버)
+  try {
+    const primary = await searchByKeyword({
+      query: `${k} 세차장`, lat, lon, radius, sort: 'distance', size: 15,
+    });
+    collect(primary, all, seen);
+  } catch {/* 무시 — fallback 시도 */}
+
+  // 2차: 결과 < 5건이면 변형 2개 추가 (브랜드명/워시존 캐치)
+  if (all.length < 5) {
+    const fallbackQueries = [`${k} 워시`, k];
+    const results = await Promise.allSettled(
+      fallbackQueries.map(q => searchByKeyword({ query: q, lat, lon, radius, sort: 'distance', size: 15 }))
+    );
+    for (const r of results) {
+      if (r.status === 'fulfilled') collect(r.value, all, seen);
+    }
   }
-  all.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+
+  all.sort((a, b) =>
+    (Number.isFinite(a.distance) ? a.distance : Infinity) -
+    (Number.isFinite(b.distance) ? b.distance : Infinity)
+  );
   return all.slice(0, 25);
 }
 
@@ -139,9 +170,14 @@ export async function searchByAddress(query) {
   const key = KEYS.kakao;
   if (!key) throw new Error('카카오 REST API 키가 설정되지 않았습니다');
   const params = new URLSearchParams({ query: String(query), size: '10' });
-  const data = await httpJson(`${ENDPOINT_ADDRESS}?${params}`, {
-    headers: { 'Authorization': `KakaoAK ${key}` },
-  });
+  let data;
+  try {
+    data = await httpJson(`${ENDPOINT_ADDRESS}?${params}`, {
+      headers: { 'Authorization': `KakaoAK ${key}` },
+    });
+  } catch (e) {
+    throw friendlyKakaoError(e);
+  }
   const docs = Array.isArray(data?.documents) ? data.documents : [];
   return docs.map(d => {
     const addr = d.address || d.road_address || {};
