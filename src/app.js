@@ -150,14 +150,27 @@ async function openCityPicker() {
       els.cityList.dataset.loaded = '1';
       // 도시/구 클릭 위임 핸들러 (드릴다운 + 선택)
       els.cityList.addEventListener('click', (ev) => {
+        // 동 드릴다운
+        const dongBtn = ev.target.closest('button[data-drill-dong]');
+        if (dongBtn) {
+          ev.preventDefault();
+          renderDongList({
+            districtName: dongBtn.dataset.drillDong,
+            cityId: dongBtn.dataset.cityId,
+            cityName: dongBtn.dataset.cityName,
+            lat: Number(dongBtn.dataset.lat),
+            lon: Number(dongBtn.dataset.lon),
+          });
+          return;
+        }
         const drillBtn = ev.target.closest('button[data-drill]');
         if (drillBtn) {
           ev.preventDefault();
-          const cityId = drillBtn.dataset.drill;
-          if (cityId === 'back') {
+          const target = drillBtn.dataset.drill;
+          if (target === 'back') {
             renderCityPresets();
           } else {
-            renderDistrictList(cityId);
+            renderDistrictList(target);
           }
           return;
         }
@@ -257,19 +270,17 @@ async function loadDistricts() {
 function renderCityPresets() {
   const cities = state.allCities || [];
   const districts = state.allDistricts || {};
+  els.cityList.dataset.mode = 'cities';
   els.cityList.innerHTML = cities.map(c => {
     const hasDistricts = districts[c.id] && districts[c.id].districts?.length > 0;
     if (hasDistricts) {
-      // 드릴다운 가능 도시 — 본체 클릭 = 도시 전체 선택, 화살표 클릭 = 펼치기
       return `
         <li class="city-with-drill">
           <button type="button"
               data-lat="${c.lat}" data-lon="${c.lon}" data-name="${escapeAttr(c.name)}">
             <span class="place-name">${escapeHtml(c.name)}</span>
           </button>
-          <button type="button" class="city-drill-btn" data-drill="${c.id}" aria-label="${escapeAttr(c.name)} 하위 지역 보기">
-            <span>구·군 ▸</span>
-          </button>
+          <button type="button" class="city-drill-btn" data-drill="${c.id}" aria-label="${escapeAttr(c.name)} 하위 지역">▸</button>
         </li>
       `;
     }
@@ -289,9 +300,11 @@ function renderDistrictList(cityId) {
     renderCityPresets();
     return;
   }
+  els.cityList.dataset.mode = 'districts';
+  state.currentCityId = cityId;
   els.cityList.innerHTML = `
     <li class="district-back-row">
-      <button type="button" class="district-back-btn" data-drill="back">◂ 주요 도시로 돌아가기</button>
+      <button type="button" class="district-back-btn" data-drill="back">◂ 주요 도시로</button>
     </li>
     <li class="district-header">
       <button type="button"
@@ -301,15 +314,132 @@ function renderDistrictList(cityId) {
       </button>
     </li>
     ${data.districts.map(d => `
-      <li><button type="button"
-          data-lat="${d.lat}" data-lon="${d.lon}"
-          data-name="${escapeAttr(d.name)}"
-          data-region="${escapeAttr(data.name)}">
-        <span class="place-name">${escapeHtml(d.name)}</span>
-        <span class="place-region">${escapeHtml(data.name)}</span>
-      </button></li>
+      <li class="district-with-drill">
+        <button type="button"
+            data-lat="${d.lat}" data-lon="${d.lon}"
+            data-name="${escapeAttr(d.name)}"
+            data-region="${escapeAttr(data.name)}">
+          <span class="place-name">${escapeHtml(d.name)}</span>
+          <span class="place-region">${escapeHtml(data.name)}</span>
+        </button>
+        <button type="button" class="city-drill-btn"
+                data-drill-dong="${escapeAttr(d.name)}"
+                data-city-id="${escapeAttr(cityId)}"
+                data-city-name="${escapeAttr(data.name)}"
+                data-lat="${d.lat}" data-lon="${d.lon}"
+                aria-label="${escapeAttr(d.name)} 동 보기">▸ 동</button>
+      </li>
     `).join('')}
   `;
+}
+
+// 동 단위 드릴다운 — 카카오 주소 검색 API로 실시간 조회
+async function renderDongList(opts) {
+  const { districtName, cityId, cityName, lat, lon } = opts;
+  els.cityList.dataset.mode = 'dongs';
+  els.cityList.innerHTML = `<li class="search-loading">${escapeHtml(districtName)} 동 목록 불러오는 중…</li>`;
+
+  if (!KEYS.kakao) {
+    els.cityList.innerHTML = `
+      <li class="district-back-row">
+        <button type="button" class="district-back-btn" data-drill="${escapeAttr(cityId)}">◂ ${escapeHtml(cityName)} 구로</button>
+      </li>
+      <li class="search-empty">동 단위 검색은 카카오 키가 필요합니다</li>
+    `;
+    return;
+  }
+
+  try {
+    // 카카오 주소 API: "서울 강남구" → 동 목록
+    const query = `${cityName} ${districtName}`;
+    const params = new URLSearchParams({ query, size: '15' });
+    const res = await fetch(`https://dapi.kakao.com/v2/local/search/address.json?${params}`, {
+      headers: { 'Authorization': `KakaoAK ${KEYS.kakao}` },
+    });
+    const data = await res.json();
+    const docs = data.documents || [];
+    // 행정동만 필터
+    const dongs = [];
+    const seen = new Set();
+    for (const d of docs) {
+      const region = d.address;
+      if (!region) continue;
+      const dongName = region.region_3depth_name; // 동 이름
+      if (!dongName) continue;
+      const k = dongName;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      dongs.push({
+        name: dongName,
+        full: `${region.region_1depth_name} ${region.region_2depth_name} ${dongName}`,
+        lat: Number(d.y),
+        lon: Number(d.x),
+      });
+    }
+
+    if (dongs.length === 0) {
+      // 동 데이터 없음 — 키워드 검색으로 폴백
+      const kRes = await fetch(`https://dapi.kakao.com/v2/local/search/keyword.json?` + new URLSearchParams({
+        query: `${districtName} 동`,
+        x: String(lon), y: String(lat), radius: '5000', sort: 'distance', size: '15',
+      }), {
+        headers: { 'Authorization': `KakaoAK ${KEYS.kakao}` },
+      });
+      const kData = await kRes.json();
+      const seenK = new Set();
+      for (const it of (kData.documents || [])) {
+        const m = (it.address_name || '').match(/([가-힣]+동)/);
+        if (m && !seenK.has(m[1])) {
+          seenK.add(m[1]);
+          dongs.push({ name: m[1], full: it.address_name, lat: Number(it.y), lon: Number(it.x) });
+        }
+      }
+    }
+
+    if (dongs.length === 0) {
+      els.cityList.innerHTML = `
+        <li class="district-back-row">
+          <button type="button" class="district-back-btn" data-drill="${escapeAttr(cityId)}">◂ ${escapeHtml(cityName)} 구로</button>
+        </li>
+        <li class="search-empty">${escapeHtml(districtName)}의 동 데이터를 찾지 못했어요</li>
+      `;
+      return;
+    }
+
+    // 가나다순
+    dongs.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+
+    els.cityList.innerHTML = `
+      <li class="district-back-row">
+        <button type="button" class="district-back-btn" data-drill="${escapeAttr(cityId)}">◂ ${escapeHtml(cityName)} 구로</button>
+      </li>
+      <li class="district-header">
+        <button type="button"
+            data-lat="${lat}" data-lon="${lon}"
+            data-name="${escapeAttr(districtName)}"
+            data-region="${escapeAttr(cityName)}">
+          <span class="place-name">📍 ${escapeHtml(districtName)} 전체</span>
+        </button>
+      </li>
+      ${dongs.map(d => `
+        <li><button type="button"
+            data-lat="${d.lat}" data-lon="${d.lon}"
+            data-name="${escapeAttr(d.name)}"
+            data-region="${escapeAttr(cityName + ' ' + districtName)}">
+          <span class="place-name">${escapeHtml(d.name)}</span>
+          <span class="place-region">${escapeHtml(cityName + ' ' + districtName)}</span>
+        </button></li>
+      `).join('')}
+    `;
+  } catch (e) {
+    console.warn('[dongs] 실패', e);
+    els.cityList.innerHTML = `
+      <li class="district-back-row">
+        <button type="button" class="district-back-btn" data-drill="${escapeAttr(cityId)}">◂ ${escapeHtml(cityName)} 구로</button>
+      </li>
+      <li class="search-empty">동 검색 실패: ${escapeHtml(e.message || '오류')}</li>
+    `;
+  }
 }
 
 function getCityLat(id) {

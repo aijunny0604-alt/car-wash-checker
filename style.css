@@ -1449,10 +1449,15 @@ dialog.city-picker {
   border-radius: var(--radius);
   background: var(--surface);
   color: var(--text);
-  padding: 18px;
-  max-width: 440px; width: calc(100% - 32px);
-  max-height: 80vh;
+  padding: 20px 22px;
+  max-width: 560px;
+  width: calc(100% - 32px);
+  max-height: 85vh;
   overflow-y: auto;
+}
+dialog.city-picker form {
+  width: 100%;
+  min-width: 0;
 }
 
 .place-search {
@@ -1533,25 +1538,47 @@ dialog.city-picker {
 }
 dialog::backdrop { background: rgba(0,0,0,0.4); }
 .city-list, .source-toggles { list-style: none; padding: 0; margin: 8px 0; }
+/* 주요 도시 (드릴다운 안 들어간 상태) — 2~3열 그리드 */
+#cityList[data-mode="cities"] {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+}
+@media (min-width: 480px) {
+  #cityList[data-mode="cities"] { grid-template-columns: repeat(3, 1fr); }
+}
+#cityList[data-mode="cities"] li { min-width: 0; }
+/* 구/동 모드는 1열 (region 표시 + 가독성) */
+#cityList[data-mode="districts"], #cityList[data-mode="dongs"] {
+  display: block;
+}
+.district-back-row, .district-header { grid-column: 1 / -1; }
 .city-list li button {
   width: 100%; text-align: left; background: transparent;
-  border: 0; padding: 10px 8px; border-radius: 8px;
+  border: 0; padding: 10px 12px; border-radius: 8px;
   color: var(--text); cursor: pointer; font-size: 1rem;
+  /* 줄바꿈 방지 — 한글 한 글자씩 떨어지는 문제 해결 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: keep-all;
+  min-width: 0;
 }
 .city-list li button:hover, .city-list li button:focus-visible {
   background: var(--bg); outline: none;
 }
 
-/* 도시 + 드릴다운 버튼 (구·군 ▸) */
-.city-with-drill {
+/* 도시/구 + 드릴다운 버튼 (▸) */
+.city-with-drill, .district-with-drill {
   display: flex;
   align-items: stretch;
   gap: 4px;
 }
-.city-with-drill > button:first-child { flex: 1; }
+.city-with-drill > button:first-child,
+.district-with-drill > button:first-child { flex: 1; min-width: 0; }
 .city-drill-btn {
   flex: 0 0 auto;
-  padding: 0 12px !important;
+  padding: 4px 10px !important;
   font-size: 0.75rem !important;
   color: var(--primary) !important;
   background: rgba(14, 165, 233, 0.08) !important;
@@ -1758,4 +1785,53 @@ button:focus-visible, [role="button"]:focus-visible {
   .score-gauge .gauge-num { font-size: 1.5rem; }
   .metric-row { gap: 4px; }
   .forecast-strip { grid-auto-columns: 72px; }
+}
+
+/* ════════════════════════════════════════════════════
+   모바일/태블릿 그래픽 깨짐 강력 패치 (≤ 1099px)
+   PC 그리드(1100+) 이외 모든 환경에서 안전한 레이아웃 보장
+   ════════════════════════════════════════════════════ */
+@media (max-width: 1099px) {
+  /* 메인 카드는 flex-column으로만 — 절대 grid 강제 안 됨 */
+  .today-card {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center;
+    grid-template-columns: none !important;
+  }
+  /* 메트릭 4열을 기본으로 하되 여백이 작으면 자동으로 줄어듦 */
+  .metric-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    width: 100%;
+    gap: 6px;
+  }
+  /* 화면 너무 좁으면 2열 */
+  @media (max-width: 600px) {
+    .metric-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  /* 메트릭 카드 자체가 컨테이너 넘치지 않도록 */
+  .metric { min-width: 0; }
+  .metric .v {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+  /* SVG 그래프는 컨테이너 폭에 맞춤 */
+  .sparkline { max-width: 100%; height: auto; aspect-ratio: 700 / 180; }
+  .anim-svg { max-width: 100%; height: 100%; }
+  /* 모든 섹션은 100% 폭 */
+  .grid-2col, .col-main, .col-side {
+    width: 100%;
+    min-width: 0;
+  }
+  .grid-2col > * {
+    min-width: 0;  /* grid item 기본 min-width: auto가 overflow 일으키는 것 방지 */
+  }
+  /* 시간별 차트 컨테이너도 줄어들 수 있게 */
+  .hourly-section, .air-section, .carwash-section, .today-card, .forecast-section {
+    min-width: 0;
+    max-width: 100%;
+  }
 }
