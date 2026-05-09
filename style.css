@@ -1748,54 +1748,34 @@ button:focus-visible, [role="button"]:focus-visible {
   .today-card .best-badge,
   .today-card .climate-badge { font-size: 0.66rem; padding: 1px 6px; }
 
-  /* ─────────────────────────────────────────────
-     인포그래픽 좌우 2분할 (해 SVG ↔ 100점 게이지)
-     wrapper 없이 grid-template-areas로 같은 행에 배치
-     ───────────────────────────────────────────── */
+  /* 인포그래픽 — 안전한 세로 스택 + 컴팩트 배치
+     해 → 맑음 → 100점이 가깝게 붙어 자연스러운 흐름 */
   .today-card {
-    display: grid !important;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-areas:
-      "date     date"
-      "best     best"
-      "climate  climate"
-      "stage    gauge"
-      "label    label"
-      "reasons  reasons"
-      "gear     gear"
-      "metrics  metrics"
-      "coverage coverage";
-    column-gap: 8px;
-    row-gap: 4px;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
     padding: 8px 12px 10px;
-    align-items: center;
-    justify-items: center;
+    gap: 2px;
+    grid-template-areas: none !important;
+    grid-template-columns: none !important;
   }
-  .today-card .date-tag       { grid-area: date; font-size: 0.78rem; margin: 0; }
-  .today-card .best-badge     { grid-area: best; font-size: 0.7rem; padding: 2px 8px; }
-  .today-card .climate-badge  { grid-area: climate; font-size: 0.66rem; padding: 1px 6px; }
-  .today-card .weather-stage  { grid-area: stage; }
-  .today-card .score-gauge    { grid-area: gauge; }
-  .today-card .weather-label  { grid-area: label; margin: 4px 0 0; }
-  .today-card .reasons        { grid-area: reasons; gap: 4px; margin-top: 2px; flex-wrap: wrap; justify-content: center; }
-  .today-card .reasons span   { font-size: 0.7rem; padding: 2px 7px; }
-  .today-card .gear-row       { grid-area: gear; margin-top: 0; }
-  .today-card .metric-row     { grid-area: metrics; width: 100%; }
-  .today-card .coverage       { grid-area: coverage; font-size: 0.62rem; margin-top: 2px; }
-
-  /* 좌측 해 SVG */
   .weather-stage {
-    width: 100%;
-    max-width: 130px;
+    width: 130px;
+    max-width: 80%;
     height: 96px;
-    margin: 0;
+    margin: 0 auto;
   }
-  /* 우측 100점 게이지 */
+  .today-card .weather-label {
+    margin: 0;
+    text-align: center;
+    font-size: 0.85rem;
+    line-height: 1.2;
+  }
   .score-gauge {
     position: static;
     width: 92px;
     height: 92px;
-    margin: 0;
+    margin: 2px auto 0;
   }
   .score-gauge .gauge-num { font-size: 1.4rem; }
   .score-gauge .gauge-label { font-size: 0.58rem; }
@@ -1996,9 +1976,8 @@ button:focus-visible, [role="button"]:focus-visible {
    모바일/태블릿 그래픽 깨짐 강력 패치 (≤ 1099px)
    PC 그리드(1100+) 이외 모든 환경에서 안전한 레이아웃 보장
    ════════════════════════════════════════════════════ */
-@media (min-width: 481px) and (max-width: 1099px) {
-  /* 태블릿 — 메인 카드 flex-column (PC 그리드 차단)
-     ※ 모바일(≤480px)은 위 grid 2분할 레이아웃 사용 */
+@media (max-width: 1099px) {
+  /* 모바일/태블릿 메인 카드 flex-column (PC 그리드 차단) */
   .today-card {
     display: flex !important;
     flex-direction: column !important;
