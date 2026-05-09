@@ -730,10 +730,13 @@ async function loadCarWashes(token) {
   if (!KEYS.kakao) { els.carwashSection.hidden = true; return; }
   if (!state.location) return;
 
+  // 위치 종류 — GPS = 진짜 내 주변, manual = 그 동네 임의/인기
+  const isGps = state.location.source === 'gps';
+
   // 새 위치로 진입 — 이전 도시 캐시는 즉시 폐기
   state.carwashAll = null;
   els.carwashSection.hidden = false;
-  els.carwashList.innerHTML = `<li class="carwash-loading">주변 세차장 찾는 중…</li>`;
+  els.carwashList.innerHTML = `<li class="carwash-loading">${isGps ? '내 주변 세차장' : '그 동네 인기 세차장'} 찾는 중…</li>`;
   els.carwashCount.textContent = '';
   els.carwashNote.hidden = true;
 
@@ -742,6 +745,7 @@ async function loadCarWashes(token) {
       lat: state.location.lat,
       lon: state.location.lon,
       radius: CARWASH_RADIUS,
+      sort: isGps ? 'distance' : 'accuracy',  // GPS=거리순 / 수동=인기순
     });
     if (token !== state.loadToken) return;
     // 카카오가 광역 보정한 결과 차단 — 반경 밖 항목 제거
@@ -749,7 +753,7 @@ async function loadCarWashes(token) {
       Number.isFinite(it.distance) && it.distance <= CARWASH_RADIUS
     );
     state.carwashAll = filtered;
-    renderCarWashes(filtered, { mode: 'nearby' });
+    renderCarWashes(filtered, { mode: isGps ? 'nearby-gps' : 'nearby-manual' });
   } catch (e) {
     if (token !== state.loadToken) return;
     console.warn('[carwash] 실패', e);
@@ -801,8 +805,13 @@ async function searchCarWashesByKeyword(keyword) {
 }
 
 function renderCarWashes(items, opts = {}) {
-  const { mode = 'nearby', keyword = '', matched = null } = opts;
-  const sorted = [...(items || [])].sort((a, b) => (Number.isFinite(a.distance) ? a.distance : Infinity) - (Number.isFinite(b.distance) ? b.distance : Infinity));
+  const { mode = 'nearby-gps', keyword = '', matched = null } = opts;
+  // GPS 모드만 거리순 강제, 수동/검색은 카카오 응답 순서(인기/정확도) 유지
+  const sorted = mode === 'nearby-gps'
+    ? [...(items || [])].sort((a, b) =>
+        (Number.isFinite(a.distance) ? a.distance : Infinity) - (Number.isFinite(b.distance) ? b.distance : Infinity)
+      )
+    : [...(items || [])];
 
   if (!sorted.length) {
     if (mode === 'search-address') {
@@ -817,7 +826,6 @@ function renderCarWashes(items, opts = {}) {
   }
 
   if (mode === 'search-address') {
-    // 정확한 매칭 지역 표시: "부산 사상구 덕포2동" 형식 (헷갈림 방지)
     let where;
     if (matched) {
       const parts = [matched.region1, matched.region2, matched.region3].filter(Boolean);
@@ -828,8 +836,11 @@ function renderCarWashes(items, opts = {}) {
     els.carwashCount.textContent = `📍 ${where} 주변 · ${sorted.length}곳`;
   } else if (mode === 'search-name') {
     els.carwashCount.textContent = `🏪 "${keyword}" · ${sorted.length}곳`;
+  } else if (mode === 'nearby-gps') {
+    els.carwashCount.textContent = `🎯 내 주변 · 거리순 ${sorted.length}곳`;
   } else {
-    els.carwashCount.textContent = `반경 ${CARWASH_RADIUS/1000}km · ${sorted.length}곳`;
+    // nearby-manual: 수동 선택 위치 = 인기/정확도순
+    els.carwashCount.textContent = `⭐ 인기 세차장 ${sorted.length}곳`;
   }
 
   els.carwashList.innerHTML = sorted.slice(0, 15).map(item => {

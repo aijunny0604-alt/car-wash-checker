@@ -79,11 +79,11 @@ export async function searchByKeyword({ query, lat, lon, radius = 3000, sort = '
  * @param {number} opts.lon
  * @param {number} [opts.radius=3000]
  */
-export async function searchCarWashes({ lat, lon, radius = 3000 }) {
+export async function searchCarWashes({ lat, lon, radius = 3000, sort = 'distance' }) {
   // "세차장" 키워드만으로도 셀프/일반/자동 다 잡히지만, 좀 더 넓게
   const queries = ['세차장', '셀프세차'];
   const results = await Promise.allSettled(
-    queries.map(q => searchByKeyword({ query: q, lat, lon, radius, sort: 'distance', size: 15 }))
+    queries.map(q => searchByKeyword({ query: q, lat, lon, radius, sort, size: 15 }))
   );
 
   const all = [];
@@ -96,11 +96,13 @@ export async function searchCarWashes({ lat, lon, radius = 3000 }) {
       all.push(item);
     }
   }
-  // 거리순 정렬 (NaN/undefined는 맨 뒤)
-  all.sort((a, b) =>
-    (Number.isFinite(a.distance) ? a.distance : Infinity) -
-    (Number.isFinite(b.distance) ? b.distance : Infinity)
-  );
+  // sort=distance: 거리순 / sort=accuracy: 카카오 응답 순서(인기/정확도) 유지
+  if (sort === 'distance') {
+    all.sort((a, b) =>
+      (Number.isFinite(a.distance) ? a.distance : Infinity) -
+      (Number.isFinite(b.distance) ? b.distance : Infinity)
+    );
+  }
   return all.slice(0, 20);
 }
 
