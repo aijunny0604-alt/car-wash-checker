@@ -659,6 +659,27 @@ main.layout {
   max-height: 360px;
   overflow-y: auto;
 }
+
+/* ─── 상단 위치 (carwash-top) — 가로 그리드 + 헤더 강조 ─── */
+.carwash-top {
+  margin-top: 0;
+  /* 그라데이션 헤더 보더로 시선 끌기 */
+  border-top: 3px solid #0ea5e9;
+}
+.carwash-top .carwash-head h3 { font-size: 1.05rem; }
+.carwash-top .carwash-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+  max-height: 280px; /* 가로 그리드라 살짝 작게 */
+  overflow-y: auto;
+}
+@media (max-width: 600px) {
+  .carwash-top .carwash-list {
+    grid-template-columns: 1fr;
+    max-height: 320px;
+  }
+}
 .carwash-list::-webkit-scrollbar { width: 6px; }
 .carwash-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 

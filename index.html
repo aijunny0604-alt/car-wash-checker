@@ -39,25 +39,26 @@
       </div>
     </section>
 
+    <!-- 세차장 — 최상단 노출 (사용자가 가장 자주 보는 정보) -->
+    <section id="carwashSection" class="carwash-section carwash-top" hidden>
+      <div class="carwash-head">
+        <h3>🚿 주변 세차장</h3>
+        <span id="carwashCount" class="carwash-count"></span>
+      </div>
+      <div class="carwash-search-bar">
+        <input id="carwashSearch" class="carwash-search-input" type="text"
+               placeholder="동/지명/이름 입력 시 실시간 검색 (예: 강남, 셀프세차)"
+               autocomplete="off" />
+        <button id="carwashClearBtn" type="button" class="carwash-clear-btn" hidden aria-label="검색 초기화">✕</button>
+      </div>
+      <ul id="carwashList" class="carwash-list"></ul>
+      <div id="carwashNote" class="carwash-note" hidden></div>
+    </section>
+
     <section class="grid-2col">
       <div class="col-main">
         <section id="todayCard" class="today-card" aria-live="polite">
           <div class="loading">불러오는 중…</div>
-        </section>
-
-        <section id="carwashSection" class="carwash-section" hidden>
-          <div class="carwash-head">
-            <h3>🚿 주변 세차장</h3>
-            <span id="carwashCount" class="carwash-count"></span>
-          </div>
-          <div class="carwash-search-bar">
-            <input id="carwashSearch" class="carwash-search-input" type="text"
-                   placeholder="동/지명/이름으로 검색 (예: 강남, 셀프세차)"
-                   autocomplete="off" />
-            <button id="carwashClearBtn" type="button" class="carwash-clear-btn" hidden aria-label="검색 초기화">✕</button>
-          </div>
-          <ul id="carwashList" class="carwash-list"></ul>
-          <div id="carwashNote" class="carwash-note" hidden></div>
         </section>
 
         <section id="hourlySection" class="hourly-section" hidden>

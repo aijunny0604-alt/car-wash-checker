@@ -429,21 +429,44 @@ function renderCarWashes(items, opts = {}) {
   }).join('');
 }
 
-// 검색 입력 바인딩 (debounce)
+// 검색 입력 바인딩 — 실시간 자동완성 (입력 즉시 검색)
 function bindCarwashSearch() {
   if (!els.carwashSearch || els.carwashSearch.dataset.bound) return;
   let timer = null;
+  let lastQuery = '';
   els.carwashSearch.addEventListener('input', (ev) => {
     const q = ev.target.value;
     els.carwashClearBtn.hidden = !q;
     if (timer) clearTimeout(timer);
-    timer = setTimeout(() => searchCarWashesByKeyword(q), 320);
+    // 빈 검색은 즉시 (주변 세차장 복귀)
+    if (!q.trim()) {
+      lastQuery = '';
+      searchCarWashesByKeyword('');
+      return;
+    }
+    // 같은 검색어 중복 호출 방지
+    if (q.trim() === lastQuery) return;
+    // 짧은 debounce (150ms) — 타이핑 빠르게 해도 실시간 느낌
+    timer = setTimeout(() => {
+      lastQuery = q.trim();
+      searchCarWashesByKeyword(q);
+    }, 150);
   });
   els.carwashClearBtn.addEventListener('click', () => {
     els.carwashSearch.value = '';
     els.carwashClearBtn.hidden = true;
+    lastQuery = '';
     searchCarWashesByKeyword('');
     els.carwashSearch.focus();
+  });
+  // ESC로 클리어
+  els.carwashSearch.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && els.carwashSearch.value) {
+      els.carwashSearch.value = '';
+      els.carwashClearBtn.hidden = true;
+      lastQuery = '';
+      searchCarWashesByKeyword('');
+    }
   });
   els.carwashSearch.dataset.bound = '1';
 }
