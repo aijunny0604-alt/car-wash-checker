@@ -1221,22 +1221,15 @@ main.layout {
   font-size: 0.82rem;
   cursor: pointer;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  /* PC도 모바일처럼 흰 배경 + 진한 그림자로 카드감 명확 (글래스 효과 제거) */
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(15, 23, 42, 0.08);
   box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.04),
-    0 8px 24px rgba(15, 23, 42, 0.06);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+    0 1px 3px rgba(15, 23, 42, 0.08),
+    0 6px 18px rgba(15, 23, 42, 0.08);
   transition: transform 0.28s cubic-bezier(.2,.7,.2,1),
               box-shadow 0.28s ease,
               border-color 0.28s ease;
-}
-@media (prefers-color-scheme: dark) {
-  .forecast-day {
-    background: rgba(30, 41, 59, 0.6);
-    border-color: rgba(255, 255, 255, 0.08);
-  }
 }
 
 /* 카드 윗부분에 등급별 컬러 그라데이션 띠 */
