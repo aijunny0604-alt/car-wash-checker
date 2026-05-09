@@ -1748,31 +1748,30 @@ button:focus-visible, [role="button"]:focus-visible {
   .today-card .best-badge,
   .today-card .climate-badge { font-size: 0.66rem; padding: 1px 6px; }
 
-  /* 인포그래픽 가로 2분할 — 해 SVG 좌측 + 점수 게이지 우측 (PC 레이아웃과 통일감) */
-  .today-card { position: relative; overflow: hidden; }
+  /* 인포그래픽 — 안전한 세로 스택 (해 → 맑음 → 100점) */
+  .today-card { position: relative; }
   .weather-stage {
     width: 130px;
-    max-width: 50%;
-    height: 100px;
-    margin: 0 0 0 8px;
-    align-self: flex-start;
+    max-width: 70%;
+    height: 96px;
+    margin: 0 auto;
+    align-self: center;
   }
-  .score-gauge {
-    position: absolute;
-    right: 14px;
-    top: 38px;
-    width: 86px;
-    height: 86px;
-    max-width: 40%;
-    margin: 0;
-  }
-  .score-gauge .gauge-num { font-size: 1.35rem; }
-  .score-gauge .gauge-label { font-size: 0.55rem; }
-  .score-gauge .gauge-bg, .score-gauge .gauge-fg { stroke-width: 9; }
   .today-card .weather-label {
     align-self: center;
-    margin: 4px 0 0;
+    margin: 2px 0 0;
+    text-align: center;
   }
+  .score-gauge {
+    position: static;
+    width: 96px;
+    height: 96px;
+    margin: 4px auto 0;
+    align-self: center;
+  }
+  .score-gauge .gauge-num { font-size: 1.45rem; }
+  .score-gauge .gauge-label { font-size: 0.6rem; }
+  .score-gauge .gauge-bg, .score-gauge .gauge-fg { stroke-width: 9; }
 
   /* ── 모바일 가로 스크롤 차단 (전역 안전망) ── */
   html, body { max-width: 100vw; overflow-x: hidden; }

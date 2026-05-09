@@ -4,49 +4,56 @@
 
 ---
 
-## 📌 현재 세션 진행 상황 (2026-05-09 기준)
+## 📌 현재 진행 상황 (2026-05-09 기준)
 
 ### ✅ 최근 완료
 - [x] **위치 검색 (Geocoding)** — Open-Meteo + Nominatim 이중 소스
-  - "역삼동", "정자동" 등 한글 동/리/구 검색 OK
-  - 즐겨찾기 ⭐ + 최근 검색 (localStorage)
-  - 모달 열리면 자동 포커스
-  - `src/adapters/geocoding.js`, `src/app.js`, `index.html`, `style.css` 수정
-- [x] **날씨 정확도 보정** — 네이버급으로 향상
-  - `consensus.js`: 소스 간 강수확률 차이 ≥40%p이면 낮은 값 65% 가중치
-  - `consensus.js`: 강수량 < 0.5mm 이슬비면 강수확률 30% cap
-  - `scoring.js`: 강수량+강수확률 조합 점수, 이슬비 보정
-  - 부산 5/8 점수 30 → 95 (네이버 일치)
-- [x] **Code review 후속 수정** — 점수 82 → 90+
-  - climatePromise race condition (loadToken)
-  - renderForecast best 캐시 분기
-  - 설정 모달 once → bound
+- [x] **날씨 정확도 보정** — 네이버급 (강수 차이 보정 + 이슬비 cap)
+- [x] **🚿 세차장 검색 (Kakao Local API)** ← 완료
+  - 반경 20km, 거리순, [📍 주소로 찾기 / 🏪 세차장 이름] 탭
+  - 광역 보정 차단 (반경 외 결과 필터)
+  - 이름 검색: 1차 단일 호출 + 결과 부족 시만 fallback (quota 5x 절감)
+- [x] **도시 → 구 → 동 드릴다운**
+  - 카드 그리드 (도시 파랑, 구 파랑, 동 초록 차별화)
+  - 한국 80+ 구·시 좌표 (`data/districts.json`)
+- [x] **GitHub Pages 자동 배포**
+  - GitHub Actions + Secret으로 카카오 키 주입
+  - `.nojekyll`로 underscore 파일 허용
+- [x] **최근 검색/즐겨찾기 관리**
+  - 개별 ✕ 삭제 / 전체 삭제 / 안 남기기 모드
+- [x] **모바일 대대적 최적화**
+  - audit 73 → 97점 (폰트/터치 영역)
+  - 가로 스크롤 차단 (max-width 100vw, overflow-x hidden)
+  - today-card 좌우 2분할 (해 SVG ↔ 점수 게이지)
+  - 4열 메트릭 강제, line-height 1.2 컴팩트화
+  - 다크모드 자동 적용 제거 → 라이트 고정
+- [x] **위치 변경 시 잔존 데이터 버그 fix**
+  - `state.carwashAll` 캐시 + 검색창 초기화
+  - 카카오 광역 보정 차단 (distance > radius 필터)
+- [x] **Code review v2 fix** (86점)
+  - 카카오 raw 에러 → 사용자 친화 메시지 (401/429/5xx)
+  - distance NaN false negative (`Number.isFinite ? d : Infinity`)
+  - debounce 150 → 300ms (폭주 방지)
+- [x] **flow-check 22/22 PASS (100점)**
 
 ### 🔥 다음 작업 큐 (우선순위 순)
 
-#### 1. 🚿 **세차장 검색 (카카오 로컬 API)**
-- [ ] 카카오 개발자 키 발급 (5분, 개인 무료, 일 30만건)
-  - https://developers.kakao.com → 앱 추가 → REST API 키 + Web 도메인 등록
-  - 등록 도메인: `http://localhost:8080`, `http://127.0.0.1:8080`, GitHub Pages URL
-- [ ] `src/adapters/kakaoLocal.js` 어댑터 작성
-  - 검색어: "세차장" + 현재 좌표 (`x, y, radius`)
-  - 결과: 이름, 주소, 전화, 거리, 좌표
-- [ ] 메인 카드 옆 또는 별도 섹션에 "🚿 주변 세차장" 카드
-  - 거리순 정렬, 5~10개 표시
-  - 클릭 시 카카오 지도 링크로 이동
-- [ ] 점수 OK인 날만 표시 OR 항상 표시 토글
-- **임팩트**: 진짜 "세차 앱"으로 정체성 완성
-
-#### 2. ☔ **기상청 단기예보 API (정확도 마지막 한끗)**
+#### 1. ☔ **기상청 단기예보 API (정확도 마지막 한끗)**
 - [ ] data.go.kr 회원가입 + 키 발급 (5분, 무료, 일 1만건)
 - [ ] 위경도 → 격자(nx, ny) 변환 함수 (Lambert Conformal Conic)
 - [ ] `src/adapters/kma.js` 어댑터
 - [ ] aggregator에서 한국 좌표일 때 가중치 1.5
-- **현재 한계**: 부산 5/12 강수 — 우리 49% / 네이버 60% (Open-Meteo 모델 한계)
+- **현재 한계**: 부산 5/12 강수 — 우리 49% / 네이버 60%
 - **개선 후**: 거의 100% 일치
 
-#### 3. 게임 요소 (TODO 아래 12개 중 1개)
-- ⭐ 추천 1픽: **가상 차량 키우기 (다마고치)** — 1.5h 작업, 임팩트 큼
+#### 2. 🚗 **다마고치 자동차** (게이미피케이션)
+- ⭐ 추천 1픽 — 1.5h 작업, localStorage만, 압도적 재미
+- 화면 한 켠 픽셀 자동차 + 점수 OK 날 "세차 완료" 버튼
+- 안 누르면 점점 더러워짐 (먼지 SVG 증가)
+
+#### 3. CSS 정리 (선택)
+- `!important` 37개 → 20개 이하 (셀렉터 specificity 정리)
+- render.js (704줄) 분리 (chart.js / airCard.js / metricVis.js)
 
 ---
 
