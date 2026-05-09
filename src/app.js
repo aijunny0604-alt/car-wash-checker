@@ -125,10 +125,15 @@ function onSettingsClose() {
 
 async function initLocation() {
   const stored = getStoredLocation();
-  if (stored) {
+  // stored 데이터 유효성 검증 — lat/lon이 깨졌으면 폐기
+  if (stored && Number.isFinite(stored.lat) && Number.isFinite(stored.lon)) {
     state.location = stored;
-    setLocationLabel(els.location, stored.label);
+    setLocationLabel(els.location, stored.label || '저장된 위치');
     return;
+  }
+  if (stored) {
+    // 깨진 데이터 발견 → 정리
+    try { localStorage.removeItem('cwc.location'); } catch {}
   }
   try {
     const gps = await requestGps();
@@ -153,7 +158,15 @@ async function openCityPicker() {
       state.allDistricts = districts;
       renderCityPresets();
       els.cityList.dataset.loaded = '1';
-      // 도시/구 클릭 위임 핸들러 (드릴다운 + 선택)
+    } catch (e) {
+      els.cityList.innerHTML = `<li class="muted">도시 목록 로드 실패</li>`;
+    }
+  }
+  // 도시/구 클릭 위임 핸들러 — dataset.handlersBound 가드로 중복 바인딩 방지
+  // (cities 로드 실패해도 한 번만, 성공해도 한 번만 등록)
+  if (!els.cityList.dataset.handlersBound) {
+    els.cityList.dataset.handlersBound = '1';
+    {
       els.cityList.addEventListener('click', (ev) => {
         // 주요 도시 카드: ▸ 클릭 시 드릴다운, 본문 클릭 시 선택
         const presetBtn = ev.target.closest('button.city-preset-btn');
@@ -216,8 +229,6 @@ async function openCityPicker() {
           region: btn.dataset.region || '',
         });
       });
-    } catch (e) {
-      els.cityList.innerHTML = `<li class="muted">도시 목록 로드 실패</li>`;
     }
   }
 
@@ -250,9 +261,9 @@ async function openCityPicker() {
     });
     // 검색 결과/즐겨찾기/최근 클릭 위임
     els.searchResults.addEventListener('click', onPlaceListClick);
-    els.recentList.addEventListener('click', onPlaceListClick);
     els.favoritesList.addEventListener('click', onPlaceListClick);
-    // recent-actions-bar (전체 삭제/안 남기기) 버튼은 recentBlock 내부에 동적 추가됨
+    // recentBlock 한 군데에 위임 (recentList + recent-actions-bar 모두 커버)
+    // ※ recentList에 따로 바인딩하면 버블링으로 같은 클릭이 두 번 처리됨
     els.recentBlock?.addEventListener('click', onPlaceListClick);
     els.placeSearch.dataset.bound = '1';
   }
