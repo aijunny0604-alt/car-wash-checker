@@ -1450,9 +1450,9 @@ dialog.city-picker {
   background: var(--surface);
   color: var(--text);
   padding: 20px 22px;
-  max-width: 560px;
-  width: calc(100% - 32px);
-  max-height: 85vh;
+  max-width: 720px;
+  width: calc(100% - 24px);
+  max-height: 88vh;
   overflow-y: auto;
 }
 dialog.city-picker form {
@@ -1538,14 +1538,11 @@ dialog.city-picker form {
 }
 dialog::backdrop { background: rgba(0,0,0,0.4); }
 .city-list, .source-toggles { list-style: none; padding: 0; margin: 8px 0; }
-/* 주요 도시 (드릴다운 안 들어간 상태) — 2~3열 그리드 */
+/* 주요 도시 (드릴다운 안 들어간 상태) — auto-fill 그리드 (셀이 너무 좁아지지 않게) */
 #cityList[data-mode="cities"] {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 4px;
-}
-@media (min-width: 480px) {
-  #cityList[data-mode="cities"] { grid-template-columns: repeat(3, 1fr); }
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
 }
 #cityList[data-mode="cities"] li { min-width: 0; }
 /* 구/동 모드는 1열 (region 표시 + 가독성) */
@@ -1578,13 +1575,15 @@ dialog::backdrop { background: rgba(0,0,0,0.4); }
 .district-with-drill > button:first-child { flex: 1; min-width: 0; }
 .city-drill-btn {
   flex: 0 0 auto;
-  padding: 4px 10px !important;
-  font-size: 0.75rem !important;
+  padding: 4px 8px !important;
+  font-size: 0.85rem !important;
   color: var(--primary) !important;
   background: rgba(14, 165, 233, 0.08) !important;
   font-weight: 700;
   border-radius: 8px !important;
   white-space: nowrap;
+  line-height: 1;
+  min-width: 28px;
 }
 .city-drill-btn:hover {
   background: rgba(14, 165, 233, 0.16) !important;
@@ -1755,6 +1754,11 @@ button:focus-visible, [role="button"]:focus-visible {
   }
   .place-search { padding: 10px 12px; font-size: 0.95rem; }
   .city-list li button { padding: 8px 8px; }
+  /* 모바일: 도시 그리드 최소 셀 너비 살짝 줄여 2열 보장 */
+  #cityList[data-mode="cities"] {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  }
+  .city-drill-btn { padding: 4px 6px !important; font-size: 0.8rem !important; min-width: 24px; }
 
   /* 판단 기준 푸터 */
   .criteria-info { padding: 10px 12px; }
