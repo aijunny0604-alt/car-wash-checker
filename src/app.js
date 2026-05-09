@@ -235,8 +235,16 @@ function onPlaceListClick(ev) {
 function pickPlace(loc) {
   state.location = { ...loc, source: 'manual' };
   saveLocation(state.location);
-  setLocationLabel(els.location, loc.region ? `${loc.label} · ${loc.region}` : loc.label);
-  addRecent(loc);
+  const labelText = loc.label || loc.name || '선택한 위치';
+  setLocationLabel(els.location, loc.region ? `${labelText} · ${loc.region}` : labelText);
+  // name과 label 둘 다 저장 — 어느 키로 호출해도 표시되도록
+  addRecent({
+    name: labelText,
+    label: labelText,
+    region: loc.region || '',
+    lat: loc.lat,
+    lon: loc.lon,
+  });
   els.cityPicker.close();
   loadAndRender();
 }
@@ -244,14 +252,17 @@ function pickPlace(loc) {
 function placeItemHtml(r) {
   const fav = isFavorite(r) ? 'is-fav' : '';
   const star = isFavorite(r) ? '⭐' : '☆';
+  // 옛 저장 데이터엔 name이 없을 수 있음 → label / region 폴백
+  const displayName = r.name || r.label || (r.region ? r.region.split(' ').pop() : '저장된 위치');
+  const region = r.region || '';
   return `
     <li>
       <button type="button"
           data-lat="${r.lat}" data-lon="${r.lon}"
-          data-name="${escapeAttr(r.name)}" data-region="${escapeAttr(r.region)}">
+          data-name="${escapeAttr(displayName)}" data-region="${escapeAttr(region)}">
         <span>
-          <span class="place-name">${escapeHtml(r.name)}</span>
-          <span class="place-region">${escapeHtml(r.region || '')}</span>
+          <span class="place-name">${escapeHtml(displayName)}</span>
+          <span class="place-region">${escapeHtml(region)}</span>
         </span>
         <span class="place-fav-btn ${fav}" title="즐겨찾기">${star}</span>
       </button>
@@ -261,7 +272,13 @@ function placeItemHtml(r) {
 
 // ───── 즐겨찾기 ─────
 function loadFavorites() {
-  try { return JSON.parse(localStorage.getItem('cwc.favorites') || '[]'); } catch { return []; }
+  try {
+    const list = JSON.parse(localStorage.getItem('cwc.favorites') || '[]');
+    return list.map(r => ({
+      ...r,
+      name: r.name || r.label || (r.region ? r.region.split(' ').pop() : '즐겨찾기'),
+    }));
+  } catch { return []; }
 }
 function saveFavorites(list) {
   try { localStorage.setItem('cwc.favorites', JSON.stringify(list.slice(0, 10))); } catch {}
@@ -290,7 +307,14 @@ function renderFavorites() {
 
 // ───── 최근 검색 ─────
 function loadRecents() {
-  try { return JSON.parse(localStorage.getItem('cwc.recents') || '[]'); } catch { return []; }
+  try {
+    const list = JSON.parse(localStorage.getItem('cwc.recents') || '[]');
+    // 옛 데이터 마이그레이션 — name 누락 항목에 폴백 채움
+    return list.map(r => ({
+      ...r,
+      name: r.name || r.label || (r.region ? r.region.split(' ').pop() : '저장된 위치'),
+    }));
+  } catch { return []; }
 }
 function saveRecents(list) {
   try { localStorage.setItem('cwc.recents', JSON.stringify(list.slice(0, 8))); } catch {}
