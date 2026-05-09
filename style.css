@@ -1783,21 +1783,21 @@ button:focus-visible, [role="button"]:focus-visible {
   .today-card .metric-row     { grid-area: metrics; width: 100%; }
   .today-card .coverage       { grid-area: coverage; font-size: 0.62rem; margin-top: 2px; }
 
-  /* 좌측 해 SVG — 셀 안에서 우측 정렬해 게이지에 가깝게 */
+  /* 좌측 해 SVG — 셀 가운데 정렬 (전체 카드 무게중심 균형) */
   .weather-stage {
-    width: 100%;
-    max-width: 120px;
-    height: 90px;
+    width: 130px;
+    max-width: 100%;
+    height: 100px;
     margin: 0;
-    justify-self: end;
+    justify-self: center;
   }
-  /* 우측 100점 게이지 — position: relative 필수 (gauge-text absolute 기준) */
+  /* 우측 100점 게이지 — 셀 가운데 정렬 + position: relative 필수 */
   .score-gauge {
     position: relative;
-    width: 88px;
-    height: 88px;
+    width: 92px;
+    height: 92px;
     margin: 0;
-    justify-self: start;
+    justify-self: center;
   }
   .score-gauge .gauge-num { font-size: 1.35rem; }
   .score-gauge .gauge-label { font-size: 0.55rem; }
