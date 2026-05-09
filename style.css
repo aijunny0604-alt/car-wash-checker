@@ -1737,28 +1737,32 @@ button:focus-visible, [role="button"]:focus-visible {
   }
   .date-picker-bar .link-btn { font-size: 0.85rem; padding: 4px 6px; }
 
-  /* 메인 카드 콤팩트 */
+  /* 메인 카드 콤팩트 — 컨테이너 자체 더 작게 */
   .today-card {
-    padding: 16px 14px 14px;
+    padding: 12px 12px 10px;
     min-height: 0;
-    gap: 6px;
+    gap: 4px;
   }
-  .today-card .grade-text { font-size: 1.4rem; }
-  .today-card .date-tag { font-size: 0.85rem; }
-  .today-card .reasons { gap: 4px; }
-  .today-card .reasons span { font-size: 0.78rem; padding: 3px 8px; }
-  .today-card .coverage { font-size: 0.7rem; }
+  .today-card .grade-text { font-size: 1.2rem; }
+  .today-card .date-tag { font-size: 0.78rem; margin: 0; }
+  .today-card .reasons { gap: 3px; }
+  .today-card .reasons span { font-size: 0.72rem; padding: 2px 6px; }
+  .today-card .coverage { font-size: 0.65rem; }
+  .today-card .weather-label { font-size: 0.92rem; margin: 2px 0; }
+  .today-card .best-badge,
+  .today-card .climate-badge { font-size: 0.7rem; padding: 2px 8px; }
 
-  /* 인포그래픽 컴팩트 — 사용자 요청: 모바일에서 너무 큼 */
+  /* 인포그래픽 컴팩트 — 컨테이너 줄임에 맞춰 한 단계 더 축소 */
   .weather-stage {
-    width: 130px;
-    height: 100px;
+    width: 110px;
+    height: 84px;
     margin: 0 auto;
   }
-  .score-gauge { width: 84px; height: 84px; }
-  .score-gauge .gauge-num { font-size: 1.3rem; }
-  .score-gauge .gauge-label { font-size: 0.58rem; }
+  .score-gauge { width: 72px; height: 72px; }
+  .score-gauge .gauge-num { font-size: 1.1rem; }
+  .score-gauge .gauge-label { font-size: 0.5rem; }
   .score-gauge .gauge-bg, .score-gauge .gauge-fg { stroke-width: 8; }
+  .today-card .gauge-text-wrap { transform: scale(0.95); }
 
   /* 메트릭 카드: 4열 → 2열 (좁은 화면에서 글자 안 깨지게) */
   .metric-row { grid-template-columns: repeat(2, 1fr); gap: 6px; }
