@@ -187,6 +187,11 @@
     s.type = 'module';
     s.src  = './src/app.js?b=' + window.__BUILD;
     document.body.appendChild(s);
-  </script>
+
+    const hud = document.createElement('script');
+    hud.type = 'module';
+    hud.src  = './src/hud.js?b=' + window.__BUILD;
+    document.body.appendChild(hud);
+</script>
 </body>
 </html>

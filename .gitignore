@@ -10,6 +10,7 @@ desktop.ini
 
 # Playwright MCP cache
 .playwright-mcp/
+.playwright-cli/
 
 # 스크린샷 (검증용 임시 파일)
 *.png

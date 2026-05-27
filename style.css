@@ -2228,3 +2228,488 @@ button:focus-visible, [role="button"]:focus-visible {
   text-align: center;
   list-style: none;
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   HUD 모드 — body.hud 스코프. 다크 홀로그램 + 자이로/마우스 시차.
+   기존 라이트 UI는 그대로, 토글로 다크 전환.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* 토글 버튼 — 라이트 모드에서도 보이게 */
+.hud-toggle-btn {
+  font-size: 1.1rem;
+  transition: transform 0.4s cubic-bezier(.2,.7,.2,1), filter 0.3s;
+}
+body.hud .hud-toggle-btn {
+  filter: drop-shadow(0 0 6px rgba(0, 240, 255, 0.9));
+  transform: scale(1.05);
+}
+
+body.hud {
+  --hud-cyan: #00f0ff;
+  --hud-magenta: #ff2bd6;
+  --hud-amber: #ffb547;
+  --hud-bg-0: #050912;
+  --hud-bg-1: #0a1124;
+  --hud-bg-2: #0e1834;
+  --hud-grid: rgba(0, 240, 255, 0.06);
+  --hud-line: rgba(0, 240, 255, 0.32);
+  --hud-glass: rgba(8, 14, 32, 0.55);
+
+  background:
+    radial-gradient(ellipse at 50% -10%, var(--hud-bg-2) 0%, transparent 55%),
+    radial-gradient(ellipse at 50% 110%, rgba(255, 43, 214, 0.15) 0%, transparent 55%),
+    linear-gradient(180deg, var(--hud-bg-0), var(--hud-bg-1));
+  color: #e6f8ff;
+  background-attachment: fixed;
+}
+
+/* 스캔라인 + 그리드 오버레이 (body 전역 픽스드) */
+body.hud::before {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 240, 255, 0.04) 0 1px,
+      transparent 1px 3px
+    ),
+    linear-gradient(transparent 0%, rgba(0, 240, 255, 0.03) 50%, transparent 100%);
+  mix-blend-mode: screen;
+  z-index: 9998;
+  animation: hudScan 6s linear infinite;
+}
+@keyframes hudScan {
+  0%   { background-position: 0 0,   0 0; }
+  100% { background-position: 0 60px, 0 -200px; }
+}
+
+/* 노이즈 (가벼운 SVG) */
+body.hud::after {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 9997;
+  opacity: 0.06;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 1  0 0 0 0 1  0 0 0 0.4 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+/* 헤더 */
+body.hud .app-header {
+  background: linear-gradient(180deg, rgba(8, 14, 32, 0.85), rgba(8, 14, 32, 0.45));
+  border-bottom: 1px solid var(--hud-line);
+  box-shadow: 0 0 24px rgba(0, 240, 255, 0.15);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+body.hud .app-header h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #e6f8ff;
+  text-shadow: 0 0 12px rgba(0, 240, 255, 0.6);
+}
+body.hud .icon-btn {
+  color: #e6f8ff;
+  border: 1px solid var(--hud-line);
+  background: rgba(8, 14, 32, 0.5);
+}
+
+/* 상단 위치/날짜 바 */
+body.hud .top-bar,
+body.hud .location-bar,
+body.hud .date-picker-bar {
+  color: #e6f8ff;
+}
+body.hud #locationLabel,
+body.hud .date-picker-bar label {
+  color: #b6e6ff;
+  text-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.5px;
+}
+body.hud .link-btn {
+  color: var(--hud-cyan);
+  text-shadow: 0 0 8px rgba(0, 240, 255, 0.5);
+}
+body.hud input[type="date"] {
+  background: var(--hud-glass);
+  color: #e6f8ff;
+  border: 1px solid var(--hud-line);
+  border-radius: 8px;
+  padding: 6px 10px;
+  color-scheme: dark;
+}
+
+/* ───── today-card — 메인 홀로그램 카드 ───── */
+body.hud .today-card {
+  background:
+    linear-gradient(160deg, rgba(0, 240, 255, 0.18), rgba(255, 43, 214, 0.10)),
+    linear-gradient(180deg, rgba(8, 14, 32, 0.85), rgba(8, 14, 32, 0.65));
+  border: 1px solid var(--hud-line);
+  box-shadow:
+    0 0 0 1px rgba(0, 240, 255, 0.15),
+    0 0 36px rgba(0, 240, 255, 0.25),
+    inset 0 0 60px rgba(0, 240, 255, 0.08);
+  color: #e6f8ff;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  /* 자이로/마우스 시차 — translate3d로 깊이 느낌 */
+  transform:
+    translate3d(
+      calc(var(--tilt-x, 0) * 6px),
+      calc(var(--tilt-y, 0) * 4px),
+      0
+    )
+    rotateX(calc(var(--tilt-y, 0) * -2deg))
+    rotateY(calc(var(--tilt-x, 0) *  2deg));
+  transition: transform 0.18s ease-out, box-shadow 0.5s ease;
+  will-change: transform;
+}
+/* 코너 브래킷 4개 (SVG 데이터 URI) */
+body.hud .today-card::after {
+  content: '';
+  position: absolute; inset: 8px;
+  pointer-events: none;
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M2 8 V2 H8' stroke='%2300f0ff' stroke-width='2' fill='none'/></svg>"),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M16 2 H22 V8' stroke='%2300f0ff' stroke-width='2' fill='none'/></svg>"),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M2 16 V22 H8' stroke='%2300f0ff' stroke-width='2' fill='none'/></svg>"),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M16 22 H22 V16' stroke='%2300f0ff' stroke-width='2' fill='none'/></svg>");
+  background-position: top left, top right, bottom left, bottom right;
+  background-repeat: no-repeat;
+  background-size: 22px 22px;
+  filter: drop-shadow(0 0 4px rgba(0, 240, 255, 0.9));
+  opacity: 0.85;
+}
+/* 텍스처 오버레이는 약간 톤다운 */
+body.hud .today-card::before {
+  background:
+    radial-gradient(circle at 30% 0%, rgba(0, 240, 255, 0.12), transparent 50%),
+    radial-gradient(circle at 70% 100%, rgba(255, 43, 214, 0.10), transparent 50%);
+}
+body.hud .today-card .date-tag,
+body.hud .today-card .weather-label {
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 1.2px;
+  text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+  color: #b6e6ff;
+}
+body.hud .today-card .best-badge,
+body.hud .today-card .climate-badge {
+  background: rgba(0, 240, 255, 0.18);
+  border: 1px solid var(--hud-line);
+  color: #e6f8ff;
+  text-shadow: 0 0 6px rgba(0, 240, 255, 0.5);
+}
+body.hud .today-card .reasons span {
+  background: rgba(8, 14, 32, 0.6);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  color: #e6f8ff;
+  text-shadow: 0 0 6px rgba(0, 240, 255, 0.35);
+}
+body.hud .today-card .coverage {
+  color: rgba(182, 230, 255, 0.7);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.3px;
+}
+
+/* ───── score-gauge — 회전 외곽 링 + Orbitron 숫자 ───── */
+body.hud .score-gauge {
+  position: relative;
+  filter: drop-shadow(0 0 14px rgba(0, 240, 255, 0.55));
+}
+body.hud .score-gauge::before {
+  content: '';
+  position: absolute;
+  inset: -10px;
+  border-radius: 50%;
+  background:
+    conic-gradient(from 0deg,
+      transparent 0deg,
+      var(--hud-cyan) 20deg,
+      transparent 50deg,
+      transparent 130deg,
+      var(--hud-magenta) 160deg,
+      transparent 190deg,
+      transparent 290deg,
+      var(--hud-cyan) 320deg,
+      transparent 350deg);
+  -webkit-mask: radial-gradient(circle, transparent 56%, #000 58%, #000 62%, transparent 64%);
+          mask: radial-gradient(circle, transparent 56%, #000 58%, #000 62%, transparent 64%);
+  animation: hudRingSpin 9s linear infinite;
+  pointer-events: none;
+}
+body.hud .score-gauge::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 1px dashed rgba(0, 240, 255, 0.45);
+  pointer-events: none;
+}
+@keyframes hudRingSpin { to { transform: rotate(360deg); } }
+body.hud .score-gauge .gauge-bg {
+  stroke: rgba(0, 240, 255, 0.15);
+  stroke-width: 8;
+}
+body.hud .score-gauge .gauge-fg {
+  stroke: var(--hud-cyan);
+  stroke-width: 8;
+  filter: drop-shadow(0 0 6px rgba(0, 240, 255, 0.9));
+}
+body.hud .score-gauge .gauge-num {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow:
+    0 0 10px rgba(0, 240, 255, 0.9),
+    0 0 22px rgba(0, 240, 255, 0.5);
+}
+body.hud .score-gauge .gauge-label {
+  font-family: 'JetBrains Mono', monospace;
+  color: #b6e6ff;
+  letter-spacing: 2px;
+}
+/* 등급별 색 (HUD에서도 의미 유지) */
+body.hud .gauge-text.grade-ok    .gauge-num { color: #6cffb0; text-shadow: 0 0 12px rgba(108, 255, 176, 0.8); }
+body.hud .gauge-text.grade-hold  .gauge-num { color: #ffd66c; text-shadow: 0 0 12px rgba(255, 214, 108, 0.8); }
+body.hud .gauge-text.grade-avoid .gauge-num { color: #ff6c8a; text-shadow: 0 0 12px rgba(255, 108, 138, 0.8); }
+/* .gauge-fg는 SVG 내부, .gauge-text는 형제 — sibling 셀렉터 불가.
+   :has()로 .score-gauge 컨테이너부터 들어가서 SVG circle을 짚는다. */
+body.hud .score-gauge:has(.gauge-text.grade-ok)    .gauge-fg { stroke: #6cffb0; filter: drop-shadow(0 0 6px rgba(108,255,176,0.9)); }
+body.hud .score-gauge:has(.gauge-text.grade-hold)  .gauge-fg { stroke: #ffd66c; filter: drop-shadow(0 0 6px rgba(255,214,108,0.9)); }
+body.hud .score-gauge:has(.gauge-text.grade-avoid) .gauge-fg { stroke: #ff6c8a; filter: drop-shadow(0 0 6px rgba(255,108,138,0.9)); }
+
+/* metric-row 메트릭 카드 */
+body.hud .metric-row .metric {
+  background: rgba(8, 14, 32, 0.55);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  border-radius: 10px;
+  color: #e6f8ff;
+}
+body.hud .metric-row .metric .v {
+  color: #e6f8ff;
+  font-family: 'JetBrains Mono', monospace;
+  text-shadow: 0 0 6px rgba(0, 240, 255, 0.4);
+}
+body.hud .metric-row .metric .lbl {
+  color: rgba(182, 230, 255, 0.7);
+}
+body.hud .gear-item {
+  background: rgba(8, 14, 32, 0.6);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  color: #e6f8ff;
+}
+
+/* ───── 14일 예보 카루셀 — 다크 글래스 + 등급별 네온 + 3D 시차 ───── */
+body.hud .forecast-section h2,
+body.hud .forecast-section h2 #rangeLabel {
+  color: #e6f8ff;
+  text-shadow: 0 0 8px rgba(0, 240, 255, 0.45);
+  font-family: 'Orbitron', sans-serif;
+  letter-spacing: 1px;
+}
+body.hud .range-toggle {
+  background: rgba(8, 14, 32, 0.55);
+  border: 1px solid var(--hud-line);
+  border-radius: 12px;
+}
+body.hud .range-btn { color: rgba(182, 230, 255, 0.7); }
+body.hud .range-btn:hover { color: #e6f8ff; }
+body.hud .range-btn.is-active {
+  background: rgba(0, 240, 255, 0.18);
+  color: var(--hud-cyan);
+  text-shadow: 0 0 6px rgba(0, 240, 255, 0.6);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.35);
+}
+
+body.hud .forecast-wrap {
+  perspective: 1100px;
+  perspective-origin: 50% 40%;
+}
+body.hud .forecast-strip {
+  transform-style: preserve-3d;
+  transform:
+    rotateX(calc(var(--tilt-y, 0) * -3deg))
+    rotateY(calc(var(--tilt-x, 0) *  3deg));
+  transition: transform 0.22s ease-out;
+}
+body.hud .forecast-day {
+  background:
+    linear-gradient(160deg, rgba(0, 240, 255, 0.06), rgba(255, 43, 214, 0.04)),
+    rgba(8, 14, 32, 0.65);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  box-shadow:
+    0 0 0 1px rgba(0, 240, 255, 0.08),
+    0 8px 20px rgba(0, 240, 255, 0.10),
+    inset 0 0 18px rgba(0, 240, 255, 0.06);
+  color: #e6f8ff;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+body.hud .forecast-day::before {
+  /* 등급별 그라데이션 톤다운 */
+  opacity: 0.10;
+  filter: saturate(1.4) brightness(1.2);
+}
+body.hud .forecast-day .dow {
+  color: #e6f8ff;
+  text-shadow: 0 0 6px rgba(0, 240, 255, 0.4);
+}
+body.hud .forecast-day .md {
+  color: rgba(182, 230, 255, 0.75);
+  font-family: 'JetBrains Mono', monospace;
+}
+body.hud .forecast-day .score-num {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 0 0 8px rgba(0, 240, 255, 0.65);
+}
+body.hud .forecast-day .meta {
+  color: rgba(182, 230, 255, 0.7);
+  font-family: 'JetBrains Mono', monospace;
+}
+body.hud .forecast-day.ok {
+  border-color: rgba(108, 255, 176, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(108, 255, 176, 0.15),
+    0 8px 20px rgba(108, 255, 176, 0.18),
+    inset 0 0 18px rgba(108, 255, 176, 0.10);
+}
+body.hud .forecast-day.ok .score-num { color: #6cffb0; text-shadow: 0 0 10px rgba(108, 255, 176, 0.7); }
+body.hud .forecast-day.hold {
+  border-color: rgba(255, 214, 108, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(255, 214, 108, 0.15),
+    0 8px 20px rgba(255, 214, 108, 0.16),
+    inset 0 0 18px rgba(255, 214, 108, 0.10);
+}
+body.hud .forecast-day.hold .score-num { color: #ffd66c; text-shadow: 0 0 10px rgba(255, 214, 108, 0.7); }
+body.hud .forecast-day.avoid {
+  border-color: rgba(255, 108, 138, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(255, 108, 138, 0.15),
+    0 8px 20px rgba(255, 108, 138, 0.16),
+    inset 0 0 18px rgba(255, 108, 138, 0.10);
+}
+body.hud .forecast-day.avoid .score-num { color: #ff6c8a; text-shadow: 0 0 10px rgba(255, 108, 138, 0.7); }
+body.hud .forecast-day:hover {
+  transform: translateY(-6px) translateZ(20px) scale(1.04);
+  box-shadow:
+    0 0 0 1px rgba(0, 240, 255, 0.35),
+    0 16px 36px rgba(0, 240, 255, 0.28),
+    inset 0 0 22px rgba(0, 240, 255, 0.12);
+}
+/* 기존 .forecast-day.selected가 box-shadow/transform/border-color에 !important로
+   강제 해제하고 있어, HUD에서도 !important로 덮어써야 네온 강조가 나타난다. */
+body.hud .forecast-day.selected {
+  border-color: var(--hud-cyan) !important;
+  box-shadow:
+    0 0 0 1px var(--hud-cyan),
+    0 16px 36px rgba(0, 240, 255, 0.4),
+    inset 0 0 22px rgba(0, 240, 255, 0.18) !important;
+  transform: translateY(-3px) translateZ(15px) !important;
+}
+body.hud .forecast-day.selected:hover {
+  border-color: var(--hud-cyan) !important;
+  box-shadow:
+    0 0 0 1px var(--hud-cyan),
+    0 18px 40px rgba(0, 240, 255, 0.5),
+    inset 0 0 26px rgba(0, 240, 255, 0.22) !important;
+  transform: translateY(-5px) translateZ(20px) scale(1.02) !important;
+}
+body.hud .forecast-day.best::after {
+  filter: drop-shadow(0 0 6px rgba(255, 214, 108, 0.9));
+}
+body.hud .forecast-day .score-bar {
+  background: rgba(0, 240, 255, 0.12);
+}
+body.hud .select-indicator {
+  background: var(--hud-cyan);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.8);
+}
+body.hud .climate-tag {
+  background: rgba(255, 43, 214, 0.18);
+  border: 1px solid rgba(255, 43, 214, 0.45);
+  color: #ffb1ec;
+}
+
+/* 시간별 sparkline / 대기질 — 가독성 유지 */
+body.hud .hourly-section,
+body.hud .air-section {
+  background: var(--hud-glass);
+  border: 1px solid var(--hud-line);
+  color: #e6f8ff;
+  border-radius: 14px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+body.hud .hourly-section h3,
+body.hud .air-section h3,
+body.hud .carwash-head h3 {
+  color: #e6f8ff;
+  text-shadow: 0 0 6px rgba(0, 240, 255, 0.4);
+}
+body.hud .sparkline { filter: drop-shadow(0 0 4px rgba(0, 240, 255, 0.35)); }
+body.hud .legend { color: rgba(182, 230, 255, 0.85); }
+
+body.hud .criteria-info,
+body.hud .criteria-info summary {
+  background: var(--hud-glass);
+  border: 1px solid var(--hud-line);
+  color: #e6f8ff;
+  border-radius: 10px;
+}
+
+/* 세차장 섹션 (HUD에서도 살리기 — 가독성 우선) */
+body.hud .carwash-section {
+  background: var(--hud-glass);
+  border: 1px solid var(--hud-line);
+  border-radius: 14px;
+  color: #e6f8ff;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+body.hud .carwash-tab {
+  background: rgba(8, 14, 32, 0.6);
+  border: 1px solid var(--hud-line);
+  color: rgba(182, 230, 255, 0.8);
+}
+body.hud .carwash-tab.is-active {
+  background: rgba(0, 240, 255, 0.18);
+  color: var(--hud-cyan);
+  text-shadow: 0 0 6px rgba(0, 240, 255, 0.5);
+}
+body.hud .carwash-search-input {
+  background: rgba(8, 14, 32, 0.6);
+  border: 1px solid var(--hud-line);
+  color: #e6f8ff;
+}
+body.hud .carwash-search-input::placeholder { color: rgba(182, 230, 255, 0.5); }
+body.hud .carwash-list li {
+  background: rgba(8, 14, 32, 0.55);
+  border: 1px solid rgba(0, 240, 255, 0.18);
+  color: #e6f8ff;
+}
+
+/* 다이얼로그(검색/설정 모달)는 HUD에서도 라이트 유지 — 가독성 + 입력 편의 */
+body.hud dialog.city-picker,
+body.hud dialog.city-picker * {
+  color-scheme: light;
+}
+body.hud dialog.city-picker {
+  background: #ffffff;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+/* 감소 모션 사용자 — 회전/스캔라인 정지 */
+@media (prefers-reduced-motion: reduce) {
+  body.hud::before { animation: none; }
+  body.hud .score-gauge::before { animation: none; }
+  body.hud .today-card,
+  body.hud .forecast-strip { transform: none !important; transition: none !important; }
+}
